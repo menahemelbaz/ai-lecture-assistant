@@ -1,0 +1,56 @@
+/* Anchors the overlay wrapper to the bottom-right corner of the viewport. */
+#wrapper-main-button {
+  position: fixed;
+  bottom: 30px;
+  right: 50px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Styles the gear button that toggles the secondary controls. */
+.main-button {
+  background-color: #e67e22;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  padding: 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Keeps the secondary buttons hidden until the wrapper is hovered. */
+#secondary-buttons {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Displays the additional buttons whenever the wrapper is hovered. */
+#wrapper-main-button:hover #secondary-buttons {
+  display: flex;
+}
+
+#wrapper-main-button:hover .main-button {
+  display: none;
+}
+
+/* Applies a consistent rounded style to each secondary button. */
+.buttons {
+  background-color: #e67e22;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  padding: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); 
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+/* Provides hover feedback with a color shift and subtle zoom. */
+.buttons:hover {
+  background-color: #4d86f8;
+  transform: scale(1.1);
+}

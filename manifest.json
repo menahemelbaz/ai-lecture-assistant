@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Audio Script",
+  "version": "1.0",
+  "description": "A learning aid for efficient studying through recorded lectures.",
+
+  "permissions": [
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "ws://localhost:3001/*",
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "dist/background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["style/overlay.css"],
+      "js": [
+        "dist/content/buttons.js",
+        "dist/content/controller.js",
+        "dist/content/manager.js",
+        "dist/content/main.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "images/*.png",
+        "style/overlay.css",
+        "dist/content/*.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  }
+}
