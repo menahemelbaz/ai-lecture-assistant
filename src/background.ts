@@ -13,6 +13,9 @@ let transcriptChunks: string[] = [];
 // Track which tab started the current recording session
 let activeTabId: number | null = null;
 
+// Track the currently active capture mode
+let captureMode: "tab" | "python" | null = null;
+
 // Storage keys
 const TRANSCRIPT_STORAGE_KEY = "transcriptChunks";
 const ACTIVE_TAB_STORAGE_KEY = "activeTranscriptTabId";
@@ -38,8 +41,7 @@ async function loadTranscriptState(): Promise<void> {
       transcriptChunks = [];
     }
 
-    activeTabId =
-      typeof storedTabId === "number" ? storedTabId : null;
+    activeTabId = typeof storedTabId === "number" ? storedTabId : null;
   } catch (err) {
     console.error("Error loading transcript state:", err);
     transcriptChunks = [];
@@ -102,21 +104,224 @@ async function getFullTranscript(): Promise<string> {
   return transcriptChunks.join(" ").trim();
 }
 
-function connectWebSocket(): void {
-  // Exit if the WebSocket connection is already open
-  if (socket && socket.readyState === WebSocket.OPEN) return;
+/**
+ * Start a PDF download from a regular HTTP URL.
+ */
+async function downloadPdfFromUrl(
+  downloadUrl: string,
+  filename: string
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    chrome.downloads.download(
+      {
+        url: downloadUrl,
+        filename,
+        saveAs: true,
+      },
+      (downloadId) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
 
-  // Exit if a connection attempt is already in progress
+        if (downloadId === undefined) {
+          reject(new Error("Failed to start PDF download"));
+          return;
+        }
+
+        resolve();
+      }
+    );
+  });
+}
+
+async function ensureOffscreenDocument(): Promise<void> {
+  const contexts = await chrome.runtime.getContexts({});
+
+  const hasOffscreenDocument = contexts.some(
+    (context) => context.contextType === "OFFSCREEN_DOCUMENT"
+  );
+
+  if (hasOffscreenDocument) {
+    return;
+  }
+
+  await chrome.offscreen.createDocument({
+    url: "offscreen.html",
+    reasons: ["USER_MEDIA"],
+    justification: "Capture tab audio for lecture transcription",
+  });
+}
+
+async function closeOffscreenDocumentIfOpen(): Promise<void> {
+  const contexts = await chrome.runtime.getContexts({});
+
+  const hasOffscreenDocument = contexts.some(
+    (context) => context.contextType === "OFFSCREEN_DOCUMENT"
+  );
+
+  if (!hasOffscreenDocument) {
+    return;
+  }
+
+  await chrome.offscreen.closeDocument();
+}
+
+function sendRuntimeMessage<T>(message: ExtensionMessage): Promise<T> {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response: T) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+
+      resolve(response);
+    });
+  });
+}
+
+async function startTabCapturePath(tabId: number): Promise<void> {
+  await ensureOffscreenDocument();
+
+  const streamId = await chrome.tabCapture.getMediaStreamId({
+    targetTabId: tabId,
+  });
+
+  const response = await sendRuntimeMessage<InternalCaptureResponse>({
+    type: "START_TAB_CAPTURE_INTERNAL",
+    target: "offscreen",
+    streamId,
+  });
+
+  if (!response.ok) {
+    throw new Error(response.error || "Failed to start offscreen tab capture");
+  }
+}
+
+async function stopTabCapturePath(): Promise<void> {
+  const response = await sendRuntimeMessage<InternalCaptureResponse>({
+    type: "STOP_TAB_CAPTURE_INTERNAL",
+    target: "offscreen",
+  });
+
+  if (!response.ok) {
+    throw new Error(response.error || "Failed to stop offscreen tab capture");
+  }
+
+  await closeOffscreenDocumentIfOpen();
+}
+
+async function startPythonCapturePath(): Promise<RecordingResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch("http://localhost:3000/start-recording", {
+      method: "POST",
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(
+        `Server returned ${response.status}: ${response.statusText}`
+      );
+    }
+
+    const data: { pid: number; message: string } = await response.json();
+
+    pythonProcess = data.pid;
+    captureMode = "python";
+    console.log(`Recording started with PID: ${pythonProcess}`);
+
+    return { ok: true, info: data.message, pid: pythonProcess };
+  } catch (err) {
+    clearTimeout(timeoutId);
+
+    const error = err as Error;
+
+    if (error.name === "TypeError" && error.message.includes("fetch")) {
+      return {
+        ok: false,
+        error: "Server is not running. Please start the server first.",
+      };
+    } else if (error.name === "AbortError") {
+      return {
+        ok: false,
+        error: "Request timed out. Server may not be responding.",
+      };
+    } else {
+      return {
+        ok: false,
+        error: error.message || "Failed to start recording",
+      };
+    }
+  }
+}
+
+async function stopPythonCapturePath(): Promise<RecordingResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch("http://localhost:3000/stop-recording", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pid: pythonProcess }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    pythonProcess = null;
+    captureMode = null;
+
+    if (!response.ok) {
+      throw new Error(
+        `Server returned ${response.status}: ${response.statusText}`
+      );
+    }
+
+    const data: { message: string } = await response.json();
+
+    console.log("Recording stopped");
+    return { ok: true, info: data.message };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    pythonProcess = null;
+    captureMode = null;
+
+    const error = err as Error;
+
+    if (error.name === "TypeError" && error.message.includes("fetch")) {
+      return {
+        ok: true,
+        info: "Recording process cleared (server may not be running)",
+      };
+    } else if (error.name === "AbortError") {
+      return {
+        ok: true,
+        info: "Recording process cleared (request timed out)",
+      };
+    } else {
+      return {
+        ok: true,
+        info: "Recording process cleared (server may have stopped it)",
+      };
+    }
+  }
+}
+
+function connectWebSocket(): void {
+  if (socket && socket.readyState === WebSocket.OPEN) return;
   if (connecting) return;
 
-  // Indicate that a connection attempt is in progress
   connecting = true;
 
   try {
-    // Create a new WebSocket connection
     socket = new WebSocket("ws://localhost:3001");
 
-    // Log a message once the WebSocket handshake completes
     socket.onopen = () => {
       console.log("WebSocket is connected");
       connecting = false;
@@ -146,9 +351,7 @@ function connectWebSocket(): void {
       if (socket) {
         try {
           socket.close();
-        } catch {
-          // Ignore errors when closing.
-        }
+        } catch {}
 
         socket = null;
       }
@@ -159,9 +362,81 @@ function connectWebSocket(): void {
   }
 }
 
+async function beginRecordingForTab(tabId: number): Promise<RecordingResponse> {
+  if (captureMode !== null) {
+    return { ok: false, error: "Recording already active" };
+  }
+
+  await setActiveTab(tabId);
+  await clearTranscript();
+  connectWebSocket();
+
+  try {
+    await startTabCapturePath(tabId);
+    captureMode = "tab";
+    console.log("Recording started with tabCapture");
+    return { ok: true, info: "Tab capture started" };
+  } catch (error) {
+    console.warn(
+      "tabCapture path failed. Falling back to Python capture.",
+      error
+    );
+  }
+
+  return await startPythonCapturePath();
+}
+
+async function endRecording(): Promise<RecordingResponse> {
+  if (captureMode === "tab") {
+    try {
+      await stopTabCapturePath();
+      captureMode = null;
+      return { ok: true, info: "Tab capture stopped" };
+    } catch (error) {
+      captureMode = null;
+      const message =
+        error instanceof Error ? error.message : "Failed to stop tab capture";
+      return { ok: false, error: message };
+    }
+  }
+
+  if (captureMode === "python") {
+    return await stopPythonCapturePath();
+  }
+
+  return { ok: true, info: "No active recording to stop" };
+}
+
 // Restore transcript state when the service worker starts
 loadTranscriptState().catch((err) => {
   console.error("Failed to initialize transcript state:", err);
+});
+
+// Start/stop from the extension icon.
+// This is the user invocation Chrome expects for tabCapture.
+chrome.action.onClicked.addListener(async (tab) => {
+  const tabId = tab.id;
+
+  if (tabId === undefined) {
+    console.error("Could not identify the clicked tab");
+    return;
+  }
+
+  if (captureMode !== null && activeTabId === tabId) {
+    const stopResponse = await endRecording();
+
+    if (!stopResponse.ok) {
+      console.error("Error stopping recording from action click:", stopResponse.error);
+    }
+
+    return;
+  }
+
+  const startResponse = await beginRecordingForTab(tabId);
+
+  if (!startResponse.ok) {
+    console.error("Error starting recording from action click:", startResponse.error);
+  }
 });
 
 // Central message router invoked by the content scripts injected into tabs.
@@ -169,130 +444,25 @@ chrome.runtime.onMessage.addListener(
   (
     msg: ExtensionMessage,
     sender: chrome.runtime.MessageSender,
-    sendResponse: (response: RecordingResponse | SummaryResponse) => void
+    sendResponse: (response: RecordingResponse | SummaryResponse | InternalCaptureResponse) => void
   ) => {
+    if (msg.target === "offscreen") {
+      return;
+    }
+
     (async () => {
       if (msg && msg.type === "START_RECORDING") {
-        // Ignore duplicate start requests while the recorder is already running.
-        if (pythonProcess) {
-          return { ok: false, error: "Recording already active" };
-        }
-
         const tabId = sender.tab?.id;
 
         if (tabId === undefined) {
           return { ok: false, error: "Could not identify the active tab" };
         }
 
-        await setActiveTab(tabId);
-        await clearTranscript();
-
-        // Ensure we have an active WebSocket subscription before capturing audio.
-        connectWebSocket();
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        try {
-          const response = await fetch("http://localhost:3000/start-recording", {
-            method: "POST",
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeoutId);
-
-          if (!response.ok) {
-            throw new Error(
-              `Server returned ${response.status}: ${response.statusText}`
-            );
-          }
-
-          const data: { pid: number; message: string } = await response.json();
-
-          pythonProcess = data.pid;
-          console.log(`Recording started with PID: ${pythonProcess}`);
-
-          return { ok: true, info: data.message, pid: pythonProcess };
-        } catch (err) {
-          clearTimeout(timeoutId);
-
-          const error = err as Error;
-
-          if (
-            error.name === "TypeError" &&
-            error.message.includes("fetch")
-          ) {
-            return {
-              ok: false,
-              error: "Server is not running. Please start the server first.",
-            };
-          } else if (error.name === "AbortError") {
-            return {
-              ok: false,
-              error: "Request timed out. Server may not be responding.",
-            };
-          } else {
-            return {
-              ok: false,
-              error: error.message || "Failed to start recording",
-            };
-          }
-        }
+        return await beginRecordingForTab(tabId);
       }
 
       if (msg && msg.type === "STOP_RECORDING") {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        try {
-          const response = await fetch("http://localhost:3000/stop-recording", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pid: pythonProcess }),
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeoutId);
-
-          pythonProcess = null;
-
-          if (!response.ok) {
-            throw new Error(
-              `Server returned ${response.status}: ${response.statusText}`
-            );
-          }
-
-          const data: { message: string } = await response.json();
-
-          console.log("Recording stopped");
-
-          return { ok: true, info: data.message };
-        } catch (err) {
-          clearTimeout(timeoutId);
-          pythonProcess = null;
-
-          const error = err as Error;
-
-          if (
-            error.name === "TypeError" &&
-            error.message.includes("fetch")
-          ) {
-            return {
-              ok: true,
-              info: "Recording process cleared (server may not be running)",
-            };
-          } else if (error.name === "AbortError") {
-            return {
-              ok: true,
-              info: "Recording process cleared (request timed out)",
-            };
-          } else {
-            return {
-              ok: true,
-              info: "Recording process cleared (server may have stopped it)",
-            };
-          }
-        }
+        return await endRecording();
       }
 
       if (msg && msg.type === "GENERATE_SUMMARY") {
@@ -336,18 +506,20 @@ chrome.runtime.onMessage.addListener(
           const data: {
             success: boolean;
             summary?: string;
-            pdfBase64?: string;
+            downloadUrl?: string;
             filename?: string;
             error?: string;
           } = await response.json();
 
-          if (data.success && data.summary && data.pdfBase64) {
-            console.log("Summary generated successfully");
+          if (data.success && data.downloadUrl) {
+            await downloadPdfFromUrl(
+              data.downloadUrl,
+              data.filename || "סיכום הרצאה.pdf"
+            );
+
             return {
               ok: true,
-              summary: data.summary,
-              pdfBase64: data.pdfBase64,
-              filename: data.filename || "סיכום הרצאה.pdf",
+              info: "PDF download started",
             };
           }
 

@@ -20,24 +20,8 @@ window.Controller = {
                     alert("התרחשה שגיאת תקשורת, אנא נסה שוב");
                     return;
                 }
-                if (response?.ok && response.pdfBase64) {
-                    const byteCharacters = atob(response.pdfBase64);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                    }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    const blob = new Blob([byteArray], {
-                        type: "application/pdf",
-                    });
-                    const fileUrl = URL.createObjectURL(blob);
-                    const link = document.createElement("a");
-                    link.href = fileUrl;
-                    link.download = response.filename || "סיכום הרצאה.pdf";
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(fileUrl);
+                if (response?.ok) {
+                    console.log(response.info || "PDF download started");
                 }
                 else {
                     alert(response?.error || "שגיאה ביצירת קובץ PDF");

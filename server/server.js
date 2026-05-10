@@ -1,42 +1,37 @@
 // Node server that transcribes audio chunks and broadcasts captions in real time.
-// Expose configuration values defined in the local .env file.
 require("dotenv").config();
 
-// Core dependencies for HTTP handling, file uploads, filesystem access, and OpenAI.
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
+const { randomUUID } = require("crypto");
 const { OpenAI } = require("openai");
 const puppeteer = require("puppeteer");
 
-// Utilities for spawning the Python recorder and broadcasting over WebSockets.
 const { spawn } = require("child_process");
 const WebSocket = require("ws");
 
-// Initialize the HTTP server instance.
 const app = express();
-
-// Default HTTP port used by the transcription API.
 const port = 3000;
 
-// Allow the extension and other origins to access the HTTP endpoints.
 app.use(cors());
-
-// Accept raw audio bodies posted as small WAV files (must be before json middleware).
 app.use(express.raw({ type: "audio/wav", limit: "2mb" }));
-
-// Allow JSON payloads for control endpoints.
 app.use(express.json());
 
-// Ensure uploads directory exists.
 const uploadsDir = "uploads/";
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure disk storage for traditional file uploads handled via Multer.
+const generatedPdfsDir = path.join(__dirname, "generated-pdfs");
+if (!fs.existsSync(generatedPdfsDir)) {
+  fs.mkdirSync(generatedPdfsDir, { recursive: true });
+}
+
+app.use("/generated-pdfs", express.static(generatedPdfsDir));
+
 const storage = multer.diskStorage({
   destination: uploadsDir,
   filename: (req, file, cb) => {
@@ -46,15 +41,12 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Client used to call OpenAI Whisper for both streaming and batch requests.
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// WebSocket server that streams live transcription text to connected clients.
 const wss = new WebSocket.Server({ port: 3001 });
 
-// Sends a text payload to each currently connected WebSocket client.
 function broadcast(text) {
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
@@ -133,10 +125,8 @@ async function buildSummaryPdf(summary) {
   }
 }
 
-// Holds a reference to the active Python audio capture process (if any).
 let activePythonProcess = null;
 
-// Handles traditional file uploads and returns a full transcription response.
 app.post("/transcribe", upload.single("audio"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).send({ error: "No audio file uploaded" });
@@ -152,8 +142,6 @@ app.post("/transcribe", upload.single("audio"), async (req, res) => {
     });
 
     fs.unlink(audioFilePath, () => console.log("Deleted:", audioFilePath));
-
-    // Forward the transcription to all listening WebSocket clients.
     broadcast(transcription);
 
     res.send({ text: transcription });
@@ -163,15 +151,12 @@ app.post("/transcribe", upload.single("audio"), async (req, res) => {
   }
 });
 
-// Accepts short WAV chunks posted by the Python recorder and broadcasts results.
 app.post("/stream", async (req, res) => {
   try {
-    // Validate that we received audio data.
     if (!req.body || req.body.length === 0) {
       return res.status(400).json({ error: "No audio data received" });
     }
 
-    // Persist the raw request body so Whisper can read it from disk.
     const tempFile = `${uploadsDir}chunk-${Date.now()}.wav`;
     fs.writeFileSync(tempFile, req.body);
 
@@ -183,11 +168,8 @@ app.post("/stream", async (req, res) => {
     });
 
     fs.unlink(tempFile, () => console.log("Chunk deleted:", tempFile));
-
-    // Push the transcribed text to every active WebSocket listener.
     broadcast(transcription);
 
-    // Return the transcription to the Python recorder for logging.
     res.json({ text: transcription });
   } catch (err) {
     console.error("Stream error:", err.message);
@@ -195,11 +177,9 @@ app.post("/stream", async (req, res) => {
   }
 });
 
-// Spins up the Python recorder when playback begins in the browser.
 app.post("/start-recording", (req, res) => {
   console.log("Received request to start recording...");
 
-  // Reject duplicate start requests when a recorder is already active.
   if (activePythonProcess) {
     console.warn("Recording already in progress");
     return res.status(409).json({
@@ -208,10 +188,8 @@ app.post("/start-recording", (req, res) => {
     });
   }
 
-  // Path pointing to the Python script that captures system audio.
   const pythonScript = path.join(__dirname, "audio_capture.py");
 
-  // Launch the Python process and retain stdout/stderr pipes for logging.
   activePythonProcess = spawn("python3", [pythonScript], {
     stdio: ["ignore", "pipe", "pipe"]
   });
@@ -219,7 +197,6 @@ app.post("/start-recording", (req, res) => {
   const pid = activePythonProcess.pid;
   console.log(`Python process started with PID: ${pid}`);
 
-  // Mirror stdout from the Python helper for easier debugging.
   activePythonProcess.stdout.on("data", (data) => {
     console.log(`[Python]: ${data.toString().trim()}`);
   });
@@ -228,7 +205,6 @@ app.post("/start-recording", (req, res) => {
     console.error(`[Python Error]: ${data.toString().trim()}`);
   });
 
-  // Clear the process reference once the Python helper exits naturally.
   activePythonProcess.on("close", (code, signal) => {
     console.log(`Python process exited with code ${code}, signal ${signal}`);
     activePythonProcess = null;
@@ -245,11 +221,9 @@ app.post("/start-recording", (req, res) => {
   });
 });
 
-// Terminates the Python recorder when playback is paused or stopped.
 app.post("/stop-recording", (req, res) => {
   console.log("Received request to stop recording...");
 
-  // Let the caller know when no recorder is currently active.
   if (!activePythonProcess) {
     console.warn("No active recording to stop");
     return res.status(404).json({ error: "No active recording" });
@@ -258,7 +232,6 @@ app.post("/stop-recording", (req, res) => {
   const pid = activePythonProcess.pid;
 
   try {
-    // Ask the Python process to terminate gracefully.
     const processToKill = activePythonProcess;
     activePythonProcess = null;
     let hasExited = false;
@@ -269,7 +242,6 @@ app.post("/stop-recording", (req, res) => {
 
     processToKill.kill("SIGTERM");
 
-    // Force kill the process if it fails to exit within two seconds.
     setTimeout(() => {
       if (!hasExited) {
         console.warn("Process didn't terminate, force killing...");
@@ -290,7 +262,6 @@ app.post("/stop-recording", (req, res) => {
   }
 });
 
-// Generates a summary of the transcription using GPT and returns it with a PDF payload.
 app.post("/summarize", async (req, res) => {
   try {
     const { text } = req.body;
@@ -336,12 +307,21 @@ ${text}`;
 
     const pdfBuffer = await buildSummaryPdf(summary);
 
+    const storedFilename = `${Date.now()}-${randomUUID()}.pdf`;
+    const pdfFilePath = path.join(generatedPdfsDir, storedFilename);
+
+    fs.writeFileSync(pdfFilePath, pdfBuffer);
+
+    setTimeout(() => {
+      fs.unlink(pdfFilePath, () => {});
+    }, 10 * 60 * 1000);
+
     console.log("Summary generated successfully, length:", summary.length);
 
     res.json({
       success: true,
       summary,
-      pdfBase64: pdfBuffer.toString("base64"),
+      downloadUrl: `http://localhost:3000/generated-pdfs/${storedFilename}`,
       filename: "סיכום הרצאה.pdf"
     });
   } catch (err) {
@@ -353,6 +333,5 @@ ${text}`;
   }
 });
 
-// Start the HTTP and WebSocket servers for incoming connections.
 app.listen(port, () => console.log(`HTTP Server running on port ${port}`));
 console.log("WebSocket Server running on port 3001");

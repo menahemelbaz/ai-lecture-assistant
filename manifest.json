@@ -7,7 +7,11 @@
   "permissions": [
     "scripting",
     "storage",
-    "tabs"
+    "tabs",
+    "downloads",
+    "tabCapture",
+    "offscreen",
+    "activeTab"
   ],
 
   "host_permissions": [
@@ -18,6 +22,10 @@
 
   "background": {
     "service_worker": "dist/background.js"
+  },
+
+  "action": {
+    "default_title": "Start or stop lecture capture"
   },
 
   "content_scripts": [

@@ -22,11 +22,11 @@ window.Buttons = {
         // Set the container's ID
         container.id = "secondary-buttons";
         // Create the summary button
-        const summaryButton = Buttons.createButton("fa-solid fa-file-lines", "2x", "buttons", "summary", "סיכום הרצאה");
+        const summaryButton = Buttons.createButton("fa-solid fa-file-lines", "2x", "buttons", "summary", "Summarize lecture");
         // Create the ask button
-        const askButton = Buttons.createButton("fa-solid fa-comment", "2x", "buttons", "questions", "שאל שאלה");
+        const askButton = Buttons.createButton("fa-solid fa-comment", "2x", "buttons", "questions", "Ask about lecture");
         // Create the quiz button
-        const quizButton = Buttons.createButton("fa-solid fa-list-check", "2x", "buttons", "quiz", "תרגל נושאים");
+        const quizButton = Buttons.createButton("fa-solid fa-list-check", "2x", "buttons", "quiz", "Practice lecture topics");
         // Add all buttons to the container
         container.appendChild(summaryButton);
         container.appendChild(askButton);

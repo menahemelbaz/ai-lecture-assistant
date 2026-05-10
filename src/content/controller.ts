@@ -24,31 +24,8 @@ window.Controller = {
             return;
           }
 
-          if (response?.ok && response.pdfBase64) {
-            const byteCharacters = atob(response.pdfBase64);
-            const byteNumbers = new Array(byteCharacters.length);
-
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-
-            const byteArray = new Uint8Array(byteNumbers);
-
-            const blob: Blob = new Blob([byteArray], {
-              type: "application/pdf",
-            });
-
-            const fileUrl: string = URL.createObjectURL(blob);
-            const link: HTMLAnchorElement = document.createElement("a");
-
-            link.href = fileUrl;
-            link.download = response.filename || "סיכום הרצאה.pdf";
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            URL.revokeObjectURL(fileUrl);
+          if (response?.ok) {
+            console.log(response.info || "PDF download started");
           } else {
             alert(response?.error || "שגיאה ביצירת קובץ PDF");
           }
