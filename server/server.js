@@ -2,15 +2,12 @@
 require("dotenv").config();
 
 const express = require("express");
-const multer = require("multer");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const { randomUUID } = require("crypto");
 const { OpenAI } = require("openai");
 const puppeteer = require("puppeteer");
-
-const { spawn } = require("child_process");
 const WebSocket = require("ws");
 
 const app = express();
@@ -32,15 +29,6 @@ if (!fs.existsSync(generatedPdfsDir)) {
 
 app.use("/generated-pdfs", express.static(generatedPdfsDir));
 
-const storage = multer.diskStorage({
-  destination: uploadsDir,
-  filename: (req, file, cb) => {
-    const extension = path.extname(file.originalname) || ".webm";
-    cb(null, file.fieldname + "-" + Date.now() + extension);
-  }
-});
-const upload = multer({ storage });
-
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -48,7 +36,7 @@ const openai = new OpenAI({
 const wss = new WebSocket.Server({ port: 3001 });
 
 function broadcast(text) {
-  wss.clients.forEach(client => {
+  wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(text);
     }
@@ -125,32 +113,6 @@ async function buildSummaryPdf(summary) {
   }
 }
 
-let activePythonProcess = null;
-
-app.post("/transcribe", upload.single("audio"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).send({ error: "No audio file uploaded" });
-
-    const audioFilePath = req.file.path;
-    console.log("Received file:", audioFilePath);
-
-    const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(audioFilePath),
-      model: "whisper-1",
-      language: "he",
-      response_format: "text",
-    });
-
-    fs.unlink(audioFilePath, () => console.log("Deleted:", audioFilePath));
-    broadcast(transcription);
-
-    res.send({ text: transcription });
-  } catch (err) {
-    console.error("Error:", err.message);
-    res.status(500).send({ error: "Failed to transcribe audio" });
-  }
-});
-
 app.post("/stream", async (req, res) => {
   try {
     if (!req.body || req.body.length === 0) {
@@ -177,91 +139,6 @@ app.post("/stream", async (req, res) => {
   }
 });
 
-app.post("/start-recording", (req, res) => {
-  console.log("Received request to start recording...");
-
-  if (activePythonProcess) {
-    console.warn("Recording already in progress");
-    return res.status(409).json({
-      error: "Recording already active",
-      pid: activePythonProcess.pid
-    });
-  }
-
-  const pythonScript = path.join(__dirname, "audio_capture.py");
-
-  activePythonProcess = spawn("python3", [pythonScript], {
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-
-  const pid = activePythonProcess.pid;
-  console.log(`Python process started with PID: ${pid}`);
-
-  activePythonProcess.stdout.on("data", (data) => {
-    console.log(`[Python]: ${data.toString().trim()}`);
-  });
-
-  activePythonProcess.stderr.on("data", (data) => {
-    console.error(`[Python Error]: ${data.toString().trim()}`);
-  });
-
-  activePythonProcess.on("close", (code, signal) => {
-    console.log(`Python process exited with code ${code}, signal ${signal}`);
-    activePythonProcess = null;
-  });
-
-  activePythonProcess.on("error", (err) => {
-    console.error("Failed to start Python process:", err);
-    activePythonProcess = null;
-  });
-
-  res.json({
-    message: "Recording started!",
-    pid: pid
-  });
-});
-
-app.post("/stop-recording", (req, res) => {
-  console.log("Received request to stop recording...");
-
-  if (!activePythonProcess) {
-    console.warn("No active recording to stop");
-    return res.status(404).json({ error: "No active recording" });
-  }
-
-  const pid = activePythonProcess.pid;
-
-  try {
-    const processToKill = activePythonProcess;
-    activePythonProcess = null;
-    let hasExited = false;
-
-    processToKill.once("close", () => {
-      hasExited = true;
-    });
-
-    processToKill.kill("SIGTERM");
-
-    setTimeout(() => {
-      if (!hasExited) {
-        console.warn("Process didn't terminate, force killing...");
-        processToKill.kill("SIGKILL");
-      }
-    }, 2000);
-
-    console.log(`Recording stopped (PID: ${pid})`);
-
-    res.json({
-      message: "Recording stopped.",
-      pid: pid
-    });
-  } catch (err) {
-    console.error("Error stopping recording:", err);
-    activePythonProcess = null;
-    res.status(500).json({ error: "Failed to stop recording" });
-  }
-});
-
 app.post("/summarize", async (req, res) => {
   try {
     const { text } = req.body;
@@ -285,15 +162,16 @@ ${text}`;
       messages: [
         {
           role: "system",
-          content: "אתה עוזר מקצועי שמסכם תמלולים בעברית בצורה מסודרת וברורה."
+          content:
+            "אתה עוזר מקצועי שמסכם תמלולים בעברית בצורה מסודרת וברורה.",
         },
         {
           role: "user",
-          content: prompt
-        }
+          content: prompt,
+        },
       ],
       temperature: 0.7,
-      max_tokens: 2000
+      max_tokens: 2000,
     });
 
     const summary = completion.choices[0].message.content;
@@ -301,7 +179,7 @@ ${text}`;
     if (!summary) {
       return res.status(500).json({
         success: false,
-        error: "Summary generation returned empty content"
+        error: "Summary generation returned empty content",
       });
     }
 
@@ -322,13 +200,13 @@ ${text}`;
       success: true,
       summary,
       downloadUrl: `http://localhost:3000/generated-pdfs/${storedFilename}`,
-      filename: "סיכום הרצאה.pdf"
+      filename: "סיכום הרצאה.pdf",
     });
   } catch (err) {
     console.error("Error generating summary:", err.message);
     res.status(500).json({
       error: "Failed to generate summary",
-      details: err.message
+      details: err.message,
     });
   }
 });

@@ -3,7 +3,6 @@
 interface RecordingResponse {
   ok: boolean;
   info?: string;
-  pid?: number;
   error?: string;
 }
 
