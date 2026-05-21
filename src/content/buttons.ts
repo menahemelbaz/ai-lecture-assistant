@@ -7,13 +7,34 @@ window.Buttons = {
     document.head.appendChild(icons);
   },
 
-  createButton(iconClass: string, iconSize: string, className: string, id: string = "", title: string = ""): HTMLButtonElement {
+  createButton(
+    iconClass: string,
+    iconSize: string,
+    className: string,
+    id: string = "",
+    title: string = ""
+  ): HTMLButtonElement {
     const button: HTMLButtonElement = document.createElement("button");
     button.innerHTML = `<i class="${iconClass} fa-${iconSize}"></i>`;
     button.className = className;
     button.id = id;
     button.title = title;
     return button;
+  },
+
+  createMainButton(): HTMLButtonElement {
+    const mainButton: HTMLButtonElement = document.createElement("button");
+    mainButton.className = "main-button";
+    mainButton.title = "AI Lecture Assistant";
+
+    const mainLogo: HTMLImageElement = document.createElement("img");
+    mainLogo.src = chrome.runtime.getURL("images/logo.png");
+    mainLogo.alt = "AI Lecture Assistant";
+    mainLogo.className = "main-button-logo";
+
+    mainButton.appendChild(mainLogo);
+
+    return mainButton;
   },
 
   createButtons(): void {
@@ -28,28 +49,28 @@ window.Buttons = {
     // Create the summary button
     const summaryButton: HTMLButtonElement = Buttons.createButton(
       "fa-solid fa-file-lines",
-      "2x",
+      "3x",
       "buttons",
       "summary",
-      "Summarize lecture",
+      "סכם הרצאה"
     );
 
     // Create the ask button
     const askButton: HTMLButtonElement = Buttons.createButton(
       "fa-solid fa-comment",
-      "2x",
+      "3x",
       "buttons",
       "questions",
-      "Ask about lecture",
+      "שאל על ההרצאה"
     );
 
     // Create the quiz button
     const quizButton: HTMLButtonElement = Buttons.createButton(
       "fa-solid fa-list-check",
-      "2x",
+      "3x",
       "buttons",
       "quiz",
-      "Practice lecture topics",
+      "תרגל נושאים"
     );
 
     // Add all buttons to the container
@@ -63,12 +84,8 @@ window.Buttons = {
     // Set the wrapper's ID
     wrapper.id = "wrapper-main-button";
 
-    // Create the main settings button
-    const mainButton: HTMLButtonElement = Buttons.createButton(
-      "fa-solid fa-gear",
-      "3x",
-      "main-button",
-    );
+    // Create the main extension button
+    const mainButton: HTMLButtonElement = Buttons.createMainButton();
 
     // Add the main button to the wrapper
     wrapper.appendChild(mainButton);

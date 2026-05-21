@@ -1,12 +1,45 @@
 "use strict";
-// Select the video element from the page
-const video = document.querySelector("video");
-// Check if a video element exists
-if (video) {
-    // Set up the extension components
-    Manager.setupExtension();
-    // Start recording when the video begins playing
+// Stores the currently active video element.
+let currentVideo = null;
+// Extension setup status.
+let isExtensionSetUp = false;
+// Finds the first video element on the page.
+function findVideoElement() {
+    return document.querySelector("video");
+}
+function setupExtensionForVideo(video) {
+    // Prevents setting up the extension twice for the same video.
+    if (currentVideo === video) {
+        return;
+    }
+    currentVideo = video;
+    // Sets up the extension only once.
+    if (!isExtensionSetUp) {
+        Manager.setupExtension();
+        isExtensionSetUp = true;
+    }
+    // Start recording when the video begins playing.
     Manager.startRecordingOnPlay(video);
-    // Stop recording when the video is paused
+    // Stop recording when the video is paused.
     Manager.stopRecordingOnPause(video);
 }
+// Sets up the extension if a video element is found.
+function setupExtension() {
+    const video = findVideoElement();
+    // Stops setup if no video element is found.
+    if (!video) {
+        return;
+    }
+    setupExtensionForVideo(video);
+}
+// Try once immediately.
+setupExtension();
+// Creates the buttons whenever the page structure changes.
+const observer = new MutationObserver(() => {
+    setupExtension();
+});
+// Observes page changes to detect a new video element.
+observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+});

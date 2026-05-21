@@ -4,7 +4,7 @@ window.Controller = {
     summaryButton.disabled = true;
     summaryButton.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin fa-2x"></i>';
-    summaryButton.title = "מעבד סיכום...";
+    summaryButton.title = "מעבד את הסיכום...";
 
     try {
       chrome.runtime.sendMessage(
@@ -20,14 +20,14 @@ window.Controller = {
 
           // Check for any runtime errors
           if (chrome.runtime.lastError) {
-            alert("התרחשה שגיאת תקשורת, אנא נסה שוב");
+            alert("Connection error. Please try again.");
             return;
           }
 
           if (response?.ok) {
             console.log(response.info || "PDF download started");
           } else {
-            alert(response?.error || "שגיאה ביצירת קובץ PDF");
+            alert(response?.error || "Error generating summary.");
           }
         }
       );
@@ -36,21 +36,180 @@ window.Controller = {
       summaryButton.innerHTML =
         '<i class="fa-solid fa-file-lines fa-2x"></i>';
       summaryButton.title = "סיכום הרצאה";
-      alert("שגיאה ביצירת הסיכום");
+      alert("Error generating summary.");
     }
   },
 
+  createChat(): HTMLDivElement {
+    const existingPanel = document.getElementById("lecture-chat-panel");
+
+    if (existingPanel) {
+      return existingPanel as HTMLDivElement;
+    }
+
+    const panel = document.createElement("div");
+    panel.id = "lecture-chat-panel";
+
+  panel.innerHTML = `
+  <div id="lecture-chat-header">
+    <button id="lecture-chat-close" title="Close chat">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <div id="lecture-chat-messages"></div>
+
+  <div id="lecture-chat-input-row">
+    <input
+      id="lecture-chat-input"
+      type="text"
+      placeholder="הקלד את שאלתך"
+    />
+    <button
+      id="lecture-chat-send"
+      title="שלח שאלה"
+      aria-label="שלח שאלה"
+    >
+      <i class="fa-solid fa-arrow-up"></i>
+    </button>
+  </div>
+`;
+
+    document.body.appendChild(panel);
+
+    const closeButton = document.getElementById(
+      "lecture-chat-close"
+    ) as HTMLButtonElement;
+
+    const sendButton = document.getElementById(
+      "lecture-chat-send"
+    ) as HTMLButtonElement;
+
+    const input = document.getElementById(
+      "lecture-chat-input"
+    ) as HTMLInputElement;
+
+    closeButton.addEventListener("click", () => {
+      panel.style.display = "none";
+    });
+
+    sendButton.addEventListener("click", () => {
+      Controller.sendChatMessage();
+    });
+
+    input.addEventListener("keydown", (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        Controller.sendChatMessage();
+      }
+    });
+
+    return panel;
+  },
+
+  toggleChatPanel(): void {
+    const panel = Controller.createChat();
+
+    if (panel.style.display === "none" || panel.style.display === "") {
+      panel.style.display = "flex";
+      return;
+    }
+
+    panel.style.display = "none";
+  },
+
+  addChatMessage(
+  text: string,
+  sender: "user" | "assistant"
+): HTMLDivElement | null {
+  const messagesContainer = document.getElementById("lecture-chat-messages");
+
+  if (!messagesContainer) {
+    return null;
+  }
+
+  const message = document.createElement("div");
+  message.className = `lecture-chat-message ${sender}`;
+  message.textContent = text;
+
+  messagesContainer.appendChild(message);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+  return message;
+},
+
+  sendChatMessage(): void {
+  const input = document.getElementById(
+    "lecture-chat-input"
+  ) as HTMLInputElement | null;
+
+  if (!input) {
+    return;
+  }
+
+  const question = input.value.trim();
+
+  if (!question) {
+    return;
+  }
+
+  Controller.addChatMessage(question, "user");
+  input.value = "";
+
+  const loadingMessage = Controller.addChatMessage(
+    "מחפש תשובה לפי תוכן ההרצאה...",
+    "assistant"
+  );
+
+  chrome.runtime.sendMessage(
+    {
+      type: "ASK_LECTURE",
+      question,
+    },
+    (response: AskLectureResponse) => {
+      if (chrome.runtime.lastError) {
+        if (loadingMessage) {
+          loadingMessage.textContent = "שגיאת תקשורת, אנא נסה שוב.";
+        }
+
+        return;
+      }
+
+      if (!response?.ok) {
+        if (loadingMessage) {
+          loadingMessage.textContent =
+            response?.error || "שגיאה בקבלת תשובה מהשרת.";
+        }
+
+        return;
+      }
+
+      if (loadingMessage) {
+        loadingMessage.textContent =
+          response.answer || "לא התקבלה תשובה מהשרת.";
+      }
+    }
+  );
+},
+
   onClick(): void {
     // Get the buttons by their IDs
-    const summaryButton = document.getElementById("summary") as HTMLButtonElement;
-    const askButton = document.getElementById("questions") as HTMLButtonElement;
+    const summaryButton = document.getElementById(
+      "summary"
+    ) as HTMLButtonElement;
+    const askButton = document.getElementById(
+      "questions"
+    ) as HTMLButtonElement;
     const quizButton = document.getElementById("quiz") as HTMLButtonElement;
 
     // Add a click event to the buttons
     summaryButton.addEventListener("click", () =>
       Controller.textSummary(summaryButton)
     );
-    askButton.addEventListener("click", () => {});
+
+    askButton.addEventListener("click", () => {
+      Controller.toggleChatPanel();
+    });
+
     quizButton.addEventListener("click", () => {});
   },
 };

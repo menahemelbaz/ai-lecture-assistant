@@ -11,11 +11,16 @@ interface Window {
       title?: string
     ): HTMLButtonElement;
     createButtons(): void;
+    createMainButton(): HTMLButtonElement;
   };
-  Controller: {
-    textSummary(summaryButton: HTMLButtonElement): Promise<void>;
-    onClick(): void;
-  };
+Controller: {
+  textSummary(summaryButton: HTMLButtonElement): Promise<void>;
+  createChat(): HTMLDivElement;
+  toggleChatPanel(): void;
+  addChatMessage(text: string, sender: "user" | "assistant"): HTMLDivElement | null;
+  sendChatMessage(): void;
+  onClick(): void;
+};
   Manager: {
     setupExtension(): Promise<void>;
     startRecordingOnPlay(video: HTMLVideoElement): void;

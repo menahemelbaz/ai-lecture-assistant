@@ -120,7 +120,7 @@ function disconnectAudioGraph() {
     silentGainNode = null;
 }
 async function stopTabCapture() {
-    if (!isCapturing) {
+    if (!isCapturing && !capturedStream && !audioContext) {
         return;
     }
     isCapturing = false;
@@ -182,6 +182,22 @@ async function startTabCapture(streamId) {
             }
         }
     };
+    // Start in paused mode.
+    // Actual recording starts only after the video play event.
+    isCapturing = false;
+}
+async function pauseTabCapture() {
+    if (!isCapturing) {
+        return;
+    }
+    isCapturing = false;
+    await flushBufferedAudio();
+}
+async function resumeTabCapture() {
+    if (!capturedStream || !audioContext || !processorNode) {
+        throw new Error("Tab capture is not active");
+    }
+    await audioContext.resume();
     isCapturing = true;
 }
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -194,6 +210,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
                 return { ok: false, error: "Missing streamId" };
             }
             await startTabCapture(message.streamId);
+            return { ok: true };
+        }
+        if (message.type === "PAUSE_TAB_CAPTURE_INTERNAL") {
+            await pauseTabCapture();
+            return { ok: true };
+        }
+        if (message.type === "RESUME_TAB_CAPTURE_INTERNAL") {
+            await resumeTabCapture();
             return { ok: true };
         }
         if (message.type === "STOP_TAB_CAPTURE_INTERNAL") {

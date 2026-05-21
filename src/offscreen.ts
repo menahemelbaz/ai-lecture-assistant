@@ -45,7 +45,11 @@ function takeBufferedAudio(): BufferedAudioPacket | null {
   return packet;
 }
 
-function floatTo16BitPCM(view: DataView, offset: number, input: Float32Array): number {
+function floatTo16BitPCM(
+  view: DataView,
+  offset: number,
+  input: Float32Array
+): number {
   let currentOffset = offset;
 
   for (let i = 0; i < input.length; i++) {
@@ -61,7 +65,11 @@ function floatTo16BitPCM(view: DataView, offset: number, input: Float32Array): n
   return currentOffset;
 }
 
-function writeWavHeader(view: DataView, totalSamples: number, sampleRate: number): void {
+function writeWavHeader(
+  view: DataView,
+  totalSamples: number,
+  sampleRate: number
+): void {
   const bytesPerSample = 2;
   const channels = 1;
   const dataLength = totalSamples * bytesPerSample;
@@ -83,7 +91,10 @@ function writeWavHeader(view: DataView, totalSamples: number, sampleRate: number
   view.setUint32(40, dataLength, true);
 }
 
-function buildWavBuffer(packet: BufferedAudioPacket, sampleRate: number): ArrayBuffer {
+function buildWavBuffer(
+  packet: BufferedAudioPacket,
+  sampleRate: number
+): ArrayBuffer {
   const bytesPerSample = 2;
   const totalLength = 44 + packet.totalSamples * bytesPerSample;
   const buffer = new ArrayBuffer(totalLength);
@@ -92,6 +103,7 @@ function buildWavBuffer(packet: BufferedAudioPacket, sampleRate: number): ArrayB
   writeWavHeader(view, packet.totalSamples, sampleRate);
 
   let offset = 44;
+
   for (const chunk of packet.chunks) {
     offset = floatTo16BitPCM(view, offset, chunk);
   }
@@ -112,7 +124,9 @@ async function uploadAudioPacket(packet: BufferedAudioPacket): Promise<void> {
   });
 
   if (!response.ok) {
-    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+    throw new Error(
+      `Server returned ${response.status}: ${response.statusText}`
+    );
   }
 }
 
@@ -159,7 +173,7 @@ function disconnectAudioGraph(): void {
 }
 
 async function stopTabCapture(): Promise<void> {
-  if (!isCapturing) {
+  if (!isCapturing && !capturedStream && !audioContext) {
     return;
   }
 
@@ -237,12 +251,33 @@ async function startTabCapture(streamId: string): Promise<void> {
 
     if (bufferedSamples >= samplesPerPacket) {
       const packet = takeBufferedAudio();
+
       if (packet) {
         queueUpload(packet);
       }
     }
   };
 
+  // Start in paused mode.
+  // Actual recording starts only after the video play event.
+  isCapturing = false;
+}
+
+async function pauseTabCapture(): Promise<void> {
+  if (!isCapturing) {
+    return;
+  }
+
+  isCapturing = false;
+  await flushBufferedAudio();
+}
+
+async function resumeTabCapture(): Promise<void> {
+  if (!capturedStream || !audioContext || !processorNode) {
+    throw new Error("Tab capture is not active");
+  }
+
+  await audioContext.resume();
   isCapturing = true;
 }
 
@@ -266,6 +301,16 @@ chrome.runtime.onMessage.addListener(
         return { ok: true };
       }
 
+      if (message.type === "PAUSE_TAB_CAPTURE_INTERNAL") {
+        await pauseTabCapture();
+        return { ok: true };
+      }
+
+      if (message.type === "RESUME_TAB_CAPTURE_INTERNAL") {
+        await resumeTabCapture();
+        return { ok: true };
+      }
+
       if (message.type === "STOP_TAB_CAPTURE_INTERNAL") {
         await stopTabCapture();
         return { ok: true };
@@ -277,6 +322,7 @@ chrome.runtime.onMessage.addListener(
       .catch((error: unknown) => {
         const message =
           error instanceof Error ? error.message : "Unexpected offscreen error";
+
         sendResponse({ ok: false, error: message });
       });
 

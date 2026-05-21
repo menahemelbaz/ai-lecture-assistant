@@ -1,0 +1,17 @@
+# macOS files
+.DS_Store
+**/.DS_Store
+
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Generated PDFs
+server/generated-pdfs/*
+!server/generated-pdfs/.gitkeep
+
+# Uploaded audio chunks
+uploads/
+server/uploads/

@@ -9,16 +9,29 @@
   align-items: center;
 }
 
-/* Styles the gear button that toggles the secondary controls. */
 .main-button {
+  width: 86px;
+  height: 86px;
   background-color: #e67e22;
-  color: white;
   border: none;
   border-radius: 50%;
-  padding: 14px;
+  padding: 0;
   margin-bottom: 10px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.main-button-logo {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  display: block;
+  filter: brightness(0) invert(1);
+  transform: scale(1.25);
 }
 
 /* Keeps the secondary buttons hidden until the wrapper is hovered. */
@@ -43,14 +56,133 @@
   color: white;
   border: none;
   border-radius: 50%;
-  padding: 14px;
+  padding: 16px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+/* Increases the icons inside the secondary buttons. */
+.buttons i {
+  font-size: 33px;
 }
 
 /* Provides hover feedback with a color shift and subtle zoom. */
 .buttons:hover {
   background-color: #4d86f8;
   transform: scale(1.1);
+}
+
+/* Chat panel displayed when the user opens the lecture Q&A feature. */
+#lecture-chat-panel {
+  position: fixed;
+  right: 160px;
+  bottom: 30px;
+  width: 340px;
+  height: 420px;
+  z-index: 9999;
+  display: none;
+  flex-direction: column;
+  background-color: white;
+  color: #222;
+  border-radius: 16px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+}
+
+/* Header area for the lecture chat window. */
+#lecture-chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #e67e22;
+  color: white;
+  padding: 12px 14px;
+  font-weight: bold;
+  font-size: 15px;
+}
+
+/* Close button inside the chat header. */
+#lecture-chat-close {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+/* Scrollable area that contains the chat messages. */
+#lecture-chat-messages {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  background-color: #f7f7f7;
+}
+
+/* Shared style for all chat messages. */
+.lecture-chat-message {
+  max-width: 85%;
+  padding: 9px 11px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* User messages appear aligned to the right. */
+.lecture-chat-message.user {
+  margin-left: auto;
+  background-color: #4d86f8;
+  color: white;
+}
+
+/* Assistant messages appear aligned to the left. */
+.lecture-chat-message.assistant {
+  margin-right: auto;
+  background-color: #e9e9e9;
+  color: #222;
+}
+
+/* Input row at the bottom of the chat panel. */
+#lecture-chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #ddd;
+  background-color: white;
+  direction: ltr;
+}
+
+/* Text input used for lecture questions. */
+#lecture-chat-input {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 9px;
+  font-size: 14px;
+  outline: none;
+  direction: rtl;
+  text-align: right;
+}
+
+/* Send button for submitting a lecture question. */
+#lecture-chat-send {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background-color: #e67e22;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Icon inside the send button. */
+#lecture-chat-send i {
+  font-size: 16px;
 }
