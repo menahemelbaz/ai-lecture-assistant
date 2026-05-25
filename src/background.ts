@@ -457,7 +457,11 @@ chrome.runtime.onMessage.addListener(
     msg: ExtensionMessage,
     sender: chrome.runtime.MessageSender,
     sendResponse: (
-      response: RecordingResponse | SummaryResponse | InternalCaptureResponse
+      response:
+        | RecordingResponse
+        | SummaryResponse
+        | AskLectureResponse
+        | InternalCaptureResponse
     ) => void
   ) => {
     if (msg.target === "offscreen") {
@@ -477,6 +481,93 @@ chrome.runtime.onMessage.addListener(
 
       if (msg && msg.type === "STOP_RECORDING") {
         return await pauseRecording();
+      }
+
+      if (msg && msg.type === "ASK_LECTURE") {
+        const requesterTabId = sender.tab?.id;
+        const question = msg.question?.trim();
+
+        if (!question) {
+          return {
+            ok: false,
+            error: "לא התקבלה שאלה תקינה.",
+          };
+        }
+
+        let fullTranscript = "";
+
+        if (requesterTabId !== undefined && requesterTabId === activeTabId) {
+          fullTranscript = await getFullTranscript();
+        } else {
+          console.warn(
+            "ASK_LECTURE was sent without an active transcript session for this tab."
+          );
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        try {
+          const response = await fetch("http://localhost:3000/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question,
+              transcript: fullTranscript,
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(
+              `Server returned ${response.status}: ${response.statusText}`
+            );
+          }
+
+          const data: {
+            success: boolean;
+            answer?: string;
+            error?: string;
+          } = await response.json();
+
+          if (!data.success) {
+            return {
+              ok: false,
+              error: data.error || "שגיאה בקבלת תשובה מהשרת.",
+            };
+          }
+
+          return {
+            ok: true,
+            answer: data.answer || "לא התקבלה תשובה מהשרת.",
+          };
+        } catch (err) {
+          clearTimeout(timeoutId);
+
+          const error = err as Error;
+          console.error("Error asking lecture question:", error);
+
+          if (error.name === "TypeError" && error.message.includes("fetch")) {
+            return {
+              ok: false,
+              error: "השרת לא פועל. אנא הפעל את השרת תחילה.",
+            };
+          }
+
+          if (error.name === "AbortError") {
+            return {
+              ok: false,
+              error: "הבקשה ארכה זמן רב מדי. נסה שוב.",
+            };
+          }
+
+          return {
+            ok: false,
+            error: error.message || "שגיאה בקבלת תשובה מהשרת.",
+          };
+        }
       }
 
       if (msg && msg.type === "GENERATE_SUMMARY") {

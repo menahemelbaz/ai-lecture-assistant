@@ -115,25 +115,38 @@ window.Controller = {
         }
         Controller.addChatMessage(question, "user");
         input.value = "";
-        const loadingMessage = Controller.addChatMessage("מחפש תשובה לפי תוכן ההרצאה...", "assistant");
+        const loadingMessage = Controller.addChatMessage("", "assistant");
+        if (loadingMessage) {
+            loadingMessage.classList.add("lecture-chat-loading-message");
+            loadingMessage.innerHTML = `
+      <span class="lecture-chat-loading-dots" aria-label="ממתין לתשובה">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+    `;
+        }
         chrome.runtime.sendMessage({
             type: "ASK_LECTURE",
             question,
         }, (response) => {
             if (chrome.runtime.lastError) {
                 if (loadingMessage) {
+                    loadingMessage.classList.remove("lecture-chat-loading-message");
                     loadingMessage.textContent = "שגיאת תקשורת, אנא נסה שוב.";
                 }
                 return;
             }
             if (!response?.ok) {
                 if (loadingMessage) {
+                    loadingMessage.classList.remove("lecture-chat-loading-message");
                     loadingMessage.textContent =
                         response?.error || "שגיאה בקבלת תשובה מהשרת.";
                 }
                 return;
             }
             if (loadingMessage) {
+                loadingMessage.classList.remove("lecture-chat-loading-message");
                 loadingMessage.textContent =
                     response.answer || "לא התקבלה תשובה מהשרת.";
             }
