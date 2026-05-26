@@ -1,41 +1,5 @@
 "use strict";
 window.Controller = {
-    async textSummary(summaryButton) {
-        // Disable the button and show a loading indicator
-        summaryButton.disabled = true;
-        summaryButton.innerHTML =
-            '<i class="fa-solid fa-spinner fa-spin fa-2x"></i>';
-        summaryButton.title = "מעבד את הסיכום...";
-        try {
-            chrome.runtime.sendMessage({
-                type: "GENERATE_SUMMARY",
-            }, (response) => {
-                // Restore the summary button after processing
-                summaryButton.disabled = false;
-                summaryButton.innerHTML =
-                    '<i class="fa-solid fa-file-lines fa-2x"></i>';
-                summaryButton.title = "סיכום הרצאה";
-                // Check for any runtime errors
-                if (chrome.runtime.lastError) {
-                    alert("Connection error. Please try again.");
-                    return;
-                }
-                if (response?.ok) {
-                    console.log(response.info || "PDF download started");
-                }
-                else {
-                    alert(response?.error || "Error generating summary.");
-                }
-            });
-        }
-        catch {
-            summaryButton.disabled = false;
-            summaryButton.innerHTML =
-                '<i class="fa-solid fa-file-lines fa-2x"></i>';
-            summaryButton.title = "סיכום הרצאה";
-            alert("Error generating summary.");
-        }
-    },
     createChat() {
         const existingPanel = document.getElementById("lecture-chat-panel");
         if (existingPanel) {
@@ -44,29 +8,29 @@ window.Controller = {
         const panel = document.createElement("div");
         panel.id = "lecture-chat-panel";
         panel.innerHTML = `
-  <div id="lecture-chat-header">
-    <button id="lecture-chat-close" title="Close chat">
-      <i class="fa-solid fa-xmark"></i>
-    </button>
-  </div>
+      <div id="lecture-chat-header">
+        <button id="lecture-chat-close" title="Close chat">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
 
-  <div id="lecture-chat-messages"></div>
+      <div id="lecture-chat-messages"></div>
 
-  <div id="lecture-chat-input-row">
-    <input
-      id="lecture-chat-input"
-      type="text"
-      placeholder="הקלד את שאלתך"
-    />
-    <button
-      id="lecture-chat-send"
-      title="שלח שאלה"
-      aria-label="שלח שאלה"
-    >
-      <i class="fa-solid fa-arrow-up"></i>
-    </button>
-  </div>
-`;
+      <div id="lecture-chat-input-row">
+        <input
+          id="lecture-chat-input"
+          type="text"
+          placeholder="הקלד את שאלתך"
+        />
+        <button
+          id="lecture-chat-send"
+          title="שלח שאלה"
+          aria-label="שלח שאלה"
+        >
+          <i class="fa-solid fa-arrow-up"></i>
+        </button>
+      </div>
+    `;
         document.body.appendChild(panel);
         const closeButton = document.getElementById("lecture-chat-close");
         const sendButton = document.getElementById("lecture-chat-send");
@@ -119,12 +83,12 @@ window.Controller = {
         if (loadingMessage) {
             loadingMessage.classList.add("lecture-chat-loading-message");
             loadingMessage.innerHTML = `
-      <span class="lecture-chat-loading-dots" aria-label="ממתין לתשובה">
-        <span></span>
-        <span></span>
-        <span></span>
-      </span>
-    `;
+        <span class="lecture-chat-loading-dots" aria-label="ממתין לתשובה">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      `;
         }
         chrome.runtime.sendMessage({
             type: "ASK_LECTURE",
@@ -151,6 +115,42 @@ window.Controller = {
                     response.answer || "לא התקבלה תשובה מהשרת.";
             }
         });
+    },
+    async textSummary(summaryButton) {
+        // Disable the button and show a loading indicator
+        summaryButton.disabled = true;
+        summaryButton.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin fa-2x"></i>';
+        summaryButton.title = "מעבד את הסיכום...";
+        try {
+            chrome.runtime.sendMessage({
+                type: "GENERATE_SUMMARY",
+            }, (response) => {
+                // Restore the summary button after processing
+                summaryButton.disabled = false;
+                summaryButton.innerHTML =
+                    '<i class="fa-solid fa-file-lines fa-2x"></i>';
+                summaryButton.title = "סיכום הרצאה";
+                // Check for any runtime errors
+                if (chrome.runtime.lastError) {
+                    alert("Connection error. Please try again.");
+                    return;
+                }
+                if (response?.ok) {
+                    console.log(response.info || "PDF download started");
+                }
+                else {
+                    alert(response?.error || "Error generating summary.");
+                }
+            });
+        }
+        catch {
+            summaryButton.disabled = false;
+            summaryButton.innerHTML =
+                '<i class="fa-solid fa-file-lines fa-2x"></i>';
+            summaryButton.title = "סיכום הרצאה";
+            alert("Error generating summary.");
+        }
     },
     onClick() {
         // Get the buttons by their IDs

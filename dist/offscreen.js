@@ -119,26 +119,6 @@ function disconnectAudioGraph() {
     playbackGainNode = null;
     silentGainNode = null;
 }
-async function stopTabCapture() {
-    if (!isCapturing && !capturedStream && !audioContext) {
-        return;
-    }
-    isCapturing = false;
-    if (processorNode) {
-        processorNode.onaudioprocess = null;
-    }
-    await flushBufferedAudio();
-    disconnectAudioGraph();
-    if (capturedStream) {
-        capturedStream.getTracks().forEach((track) => track.stop());
-        capturedStream = null;
-    }
-    if (audioContext) {
-        await audioContext.close();
-        audioContext = null;
-    }
-    resetBufferedAudio();
-}
 async function startTabCapture(streamId) {
     await stopTabCapture();
     const constraints = {
@@ -199,6 +179,26 @@ async function resumeTabCapture() {
     }
     await audioContext.resume();
     isCapturing = true;
+}
+async function stopTabCapture() {
+    if (!isCapturing && !capturedStream && !audioContext) {
+        return;
+    }
+    isCapturing = false;
+    if (processorNode) {
+        processorNode.onaudioprocess = null;
+    }
+    await flushBufferedAudio();
+    disconnectAudioGraph();
+    if (capturedStream) {
+        capturedStream.getTracks().forEach((track) => track.stop());
+        capturedStream = null;
+    }
+    if (audioContext) {
+        await audioContext.close();
+        audioContext = null;
+    }
+    resetBufferedAudio();
 }
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.target !== "offscreen") {

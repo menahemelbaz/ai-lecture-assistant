@@ -10,7 +10,6 @@ window.Manager = {
   startRecordingOnPlay(video: HTMLVideoElement): void {
     // Start recording only when the video is actually playing.
     video.addEventListener("playing", () => {
-
       console.log("Video is playing. Sending START_RECORDING.");
 
       chrome.runtime.sendMessage(
@@ -40,7 +39,6 @@ window.Manager = {
   stopRecordingOnPause(video: HTMLVideoElement): void {
     // Pause events can happen temporarily on dynamic video sites.
     video.addEventListener("pause", () => {
-      
       console.log("Video pause event detected. Waiting before stopping.");
 
       window.setTimeout(() => {

@@ -1,8 +1,8 @@
 /* Anchors the overlay wrapper to the bottom-right corner of the viewport. */
 #wrapper-main-button {
   position: fixed;
-  bottom: 30px;
   right: 50px;
+  bottom: 30px;
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -10,26 +10,26 @@
 }
 
 .main-button {
-  width: 86px;
-  height: 86px;
-  background-color: #e67e22;
-  border: none;
-  border-radius: 50%;
-  padding: 0;
-  margin-bottom: 10px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 86px;
+  height: 86px;
+  margin-bottom: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
   overflow: hidden;
+  background-color: #e67e22;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .main-button-logo {
+  display: block;
   width: 60px;
   height: 60px;
   object-fit: contain;
-  display: block;
   filter: brightness(0) invert(1);
   transform: scale(1.25);
 }
@@ -41,30 +41,25 @@
   gap: 10px;
 }
 
+#wrapper-main-button:hover .main-button {
+  display: none;
+}
+
 /* Displays the additional buttons whenever the wrapper is hovered. */
 #wrapper-main-button:hover #secondary-buttons {
   display: flex;
 }
 
-#wrapper-main-button:hover .main-button {
-  display: none;
-}
-
 /* Applies a consistent rounded style to each secondary button. */
 .buttons {
-  background-color: #e67e22;
-  color: white;
+  padding: 16px;
   border: none;
   border-radius: 50%;
-  padding: 16px;
+  background-color: #e67e22;
+  color: white;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   transition: transform 0.2s ease, box-shadow 0.3s ease;
-}
-
-/* Increases the icons inside the secondary buttons. */
-.buttons i {
-  font-size: 33px;
 }
 
 /* Provides hover feedback with a color shift and subtle zoom. */
@@ -73,46 +68,51 @@
   transform: scale(1.1);
 }
 
+/* Increases the icons inside the secondary buttons. */
+.buttons i {
+  font-size: 33px;
+}
+
 /* Chat panel displayed when the user opens the lecture Q&A feature. */
 #lecture-chat-panel {
   position: fixed;
   right: 170px;
   bottom: 30px;
-  width: 340px;
-  height: 420px;
   z-index: 9999;
   display: none;
   flex-direction: column;
+  width: 340px;
+  height: 420px;
+  overflow: hidden;
+  border-radius: 16px;
   background-color: white;
   color: #222;
-  border-radius: 16px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
-  overflow: hidden;
   font-family: Arial, sans-serif;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
 /* Header area for the lecture chat window. */
 #lecture-chat-header {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
+  justify-content: flex-end;
+  padding: 12px 14px;
   background-color: #e67e22;
   color: white;
-  padding: 12px 14px;
-  font-weight: bold;
   font-size: 15px;
+  font-weight: bold;
 }
 
 /* Close button inside the chat header. */
 #lecture-chat-close {
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  font-size: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+  background: none;
+  color: white;
+  cursor: pointer;
+  font-size: 22px;
 }
 
 /* Scrollable area that contains the chat messages. */
@@ -126,8 +126,8 @@
 /* Shared style for all chat messages. */
 .lecture-chat-message {
   max-width: 85%;
-  padding: 9px 11px;
   margin-bottom: 10px;
+  padding: 9px 11px;
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.4;
@@ -219,19 +219,22 @@
 /* Text input used for lecture questions. */
 #lecture-chat-input {
   flex: 1;
+  padding: 9px;
   border: 1px solid #ccc;
   border-radius: 10px;
-  padding: 9px;
-  font-size: 14px;
   outline: none;
   direction: rtl;
   text-align: right;
   font-family: Arial, sans-serif;
+  font-size: 14px;
 }
 
 /* Send button for submitting a lecture question. */
 #lecture-chat-send {
+  display: flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   width: 38px;
   height: 38px;
   border: none;
@@ -239,9 +242,6 @@
   background-color: #e67e22;
   color: white;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Icon inside the send button. */

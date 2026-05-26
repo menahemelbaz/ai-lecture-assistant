@@ -9,7 +9,6 @@ function findVideoElement(): HTMLVideoElement | null {
   return document.querySelector<HTMLVideoElement>("video");
 }
 
-
 function setupExtensionForVideo(video: HTMLVideoElement): void {
   // Prevents setting up the extension twice for the same video.
   if (currentVideo === video) {

@@ -1,9 +1,11 @@
 window.Buttons = {
   addIconsLink(): void {
     const icons: HTMLLinkElement = document.createElement("link");
+
     icons.rel = "stylesheet";
     icons.href =
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css";
+
     document.head.appendChild(icons);
   },
 
@@ -15,19 +17,23 @@ window.Buttons = {
     title: string = ""
   ): HTMLButtonElement {
     const button: HTMLButtonElement = document.createElement("button");
+
     button.innerHTML = `<i class="${iconClass} fa-${iconSize}"></i>`;
     button.className = className;
     button.id = id;
     button.title = title;
+
     return button;
   },
 
   createMainButton(): HTMLButtonElement {
     const mainButton: HTMLButtonElement = document.createElement("button");
+
     mainButton.className = "main-button";
     mainButton.title = "AI Lecture Assistant";
 
     const mainLogo: HTMLImageElement = document.createElement("img");
+
     mainLogo.src = chrome.runtime.getURL("images/logo.png");
     mainLogo.alt = "AI Lecture Assistant";
     mainLogo.className = "main-button-logo";

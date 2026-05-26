@@ -54,11 +54,13 @@ function floatTo16BitPCM(
 
   for (let i = 0; i < input.length; i++) {
     const sample = Math.max(-1, Math.min(1, input[i]));
+
     view.setInt16(
       currentOffset,
       sample < 0 ? sample * 0x8000 : sample * 0x7fff,
       true
     );
+
     currentOffset += 2;
   }
 
@@ -172,34 +174,6 @@ function disconnectAudioGraph(): void {
   silentGainNode = null;
 }
 
-async function stopTabCapture(): Promise<void> {
-  if (!isCapturing && !capturedStream && !audioContext) {
-    return;
-  }
-
-  isCapturing = false;
-
-  if (processorNode) {
-    processorNode.onaudioprocess = null;
-  }
-
-  await flushBufferedAudio();
-
-  disconnectAudioGraph();
-
-  if (capturedStream) {
-    capturedStream.getTracks().forEach((track) => track.stop());
-    capturedStream = null;
-  }
-
-  if (audioContext) {
-    await audioContext.close();
-    audioContext = null;
-  }
-
-  resetBufferedAudio();
-}
-
 async function startTabCapture(streamId: string): Promise<void> {
   await stopTabCapture();
 
@@ -279,6 +253,34 @@ async function resumeTabCapture(): Promise<void> {
 
   await audioContext.resume();
   isCapturing = true;
+}
+
+async function stopTabCapture(): Promise<void> {
+  if (!isCapturing && !capturedStream && !audioContext) {
+    return;
+  }
+
+  isCapturing = false;
+
+  if (processorNode) {
+    processorNode.onaudioprocess = null;
+  }
+
+  await flushBufferedAudio();
+
+  disconnectAudioGraph();
+
+  if (capturedStream) {
+    capturedStream.getTracks().forEach((track) => track.stop());
+    capturedStream = null;
+  }
+
+  if (audioContext) {
+    await audioContext.close();
+    audioContext = null;
+  }
+
+  resetBufferedAudio();
 }
 
 chrome.runtime.onMessage.addListener(

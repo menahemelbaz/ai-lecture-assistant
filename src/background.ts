@@ -1,116 +1,12 @@
-// Initialize the WebSocket variable
-let socket: WebSocket | null = null;
-
-// Track whether a connection attempt is in progress
-let connecting: boolean = false;
-
-// Store the active transcript in the background script
-let transcriptChunks: string[] = [];
-
-// Track which tab started the current recording session
-let activeTabId: number | null = null;
+import { TranscriptStore } from "./background/transcriptStore.js";
+import { connectWebSocket } from "./background/websocketClient.js";
+import { TabCaptureController } from "./background/tabCaptureController.js";
 
 // Track the currently active capture mode
 let captureMode: "tab" | null = null;
 
 // Track whether the current tab capture is paused
 let isCapturePaused = false;
-
-// Storage keys
-const TRANSCRIPT_STORAGE_KEY = "transcriptChunks";
-const ACTIVE_TAB_STORAGE_KEY = "activeTranscriptTabId";
-
-/**
- * Load the saved transcript state from local storage.
- */
-async function loadTranscriptState(): Promise<void> {
-  try {
-    const result = await chrome.storage.local.get([
-      TRANSCRIPT_STORAGE_KEY,
-      ACTIVE_TAB_STORAGE_KEY,
-    ]);
-
-    const storedChunks = result[TRANSCRIPT_STORAGE_KEY];
-    const storedTabId = result[ACTIVE_TAB_STORAGE_KEY];
-
-    if (Array.isArray(storedChunks)) {
-      transcriptChunks = storedChunks.filter(
-        (item: unknown): item is string => typeof item === "string"
-      );
-    } else {
-      transcriptChunks = [];
-    }
-
-    activeTabId = typeof storedTabId === "number" ? storedTabId : null;
-  } catch (err) {
-    console.error("Error loading transcript state:", err);
-    transcriptChunks = [];
-    activeTabId = null;
-  }
-}
-
-/**
- * Save the current transcript state to local storage.
- */
-async function saveTranscriptState(): Promise<void> {
-  try {
-    await chrome.storage.local.set({
-      [TRANSCRIPT_STORAGE_KEY]: transcriptChunks,
-      [ACTIVE_TAB_STORAGE_KEY]: activeTabId,
-    });
-  } catch (err) {
-    console.error("Error saving transcript state:", err);
-  }
-}
-
-/**
- * Clear the current transcript from memory and local storage.
- */
-async function clearTranscript(): Promise<void> {
-  transcriptChunks = [];
-  await saveTranscriptState();
-}
-
-/**
- * Set the current active tab and persist it.
- */
-async function setActiveTab(tabId: number | null): Promise<void> {
-  activeTabId = tabId;
-  await saveTranscriptState();
-}
-
-/**
- * Start a new transcript session for a specific tab.
- */
-async function startNewTranscriptSession(tabId: number): Promise<void> {
-  await setActiveTab(tabId);
-  await clearTranscript();
-}
-
-/**
- * Add a new chunk of transcript to memory and persist it.
- */
-async function appendTranscript(text: string): Promise<void> {
-  const trimmedText = text.trim();
-
-  if (!trimmedText) {
-    return;
-  }
-
-  transcriptChunks.push(trimmedText);
-  await saveTranscriptState();
-}
-
-/**
- * Return the full transcript as a single string.
- */
-async function getFullTranscript(): Promise<string> {
-  if (transcriptChunks.length === 0) {
-    await loadTranscriptState();
-  }
-
-  return transcriptChunks.join(" ").trim();
-}
 
 /**
  * Start a PDF download from a regular HTTP URL.
@@ -143,154 +39,18 @@ async function downloadPdfFromUrl(
   });
 }
 
-async function ensureOffscreenDocument(): Promise<void> {
-  const contexts = await chrome.runtime.getContexts({});
-
-  const hasOffscreenDocument = contexts.some(
-    (context) => context.contextType === "OFFSCREEN_DOCUMENT"
-  );
-
-  if (hasOffscreenDocument) {
-    return;
-  }
-
-  await chrome.offscreen.createDocument({
-    url: "offscreen.html",
-    reasons: ["USER_MEDIA"],
-    justification: "Capture tab audio for lecture transcription",
+/**
+ * Connect to the transcription WebSocket and store incoming transcript chunks.
+ */
+function connectTranscriptWebSocket(): void {
+  connectWebSocket(async (text) => {
+    await TranscriptStore.appendTranscript(text);
   });
-}
-
-async function closeOffscreenDocumentIfOpen(): Promise<void> {
-  const contexts = await chrome.runtime.getContexts({});
-
-  const hasOffscreenDocument = contexts.some(
-    (context) => context.contextType === "OFFSCREEN_DOCUMENT"
-  );
-
-  if (!hasOffscreenDocument) {
-    return;
-  }
-
-  await chrome.offscreen.closeDocument();
-}
-
-function sendRuntimeMessage<T>(message: ExtensionMessage): Promise<T> {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(message, (response: T) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-
-      resolve(response);
-    });
-  });
-}
-
-async function startTabCapturePath(tabId: number): Promise<void> {
-  await ensureOffscreenDocument();
-
-  const streamId = await chrome.tabCapture.getMediaStreamId({
-    targetTabId: tabId,
-  });
-
-  const response = await sendRuntimeMessage<InternalCaptureResponse>({
-    type: "START_TAB_CAPTURE_INTERNAL",
-    target: "offscreen",
-    streamId,
-  });
-
-  if (!response.ok) {
-    throw new Error(response.error || "Failed to start offscreen tab capture");
-  }
-}
-
-async function pauseTabCapturePath(): Promise<void> {
-  const response = await sendRuntimeMessage<InternalCaptureResponse>({
-    type: "PAUSE_TAB_CAPTURE_INTERNAL",
-    target: "offscreen",
-  });
-
-  if (!response.ok) {
-    throw new Error(response.error || "Failed to pause offscreen tab capture");
-  }
-}
-
-async function resumeTabCapturePath(): Promise<void> {
-  const response = await sendRuntimeMessage<InternalCaptureResponse>({
-    type: "RESUME_TAB_CAPTURE_INTERNAL",
-    target: "offscreen",
-  });
-
-  if (!response.ok) {
-    throw new Error(response.error || "Failed to resume offscreen tab capture");
-  }
-}
-
-async function stopTabCapturePath(): Promise<void> {
-  const response = await sendRuntimeMessage<InternalCaptureResponse>({
-    type: "STOP_TAB_CAPTURE_INTERNAL",
-    target: "offscreen",
-  });
-
-  if (!response.ok) {
-    throw new Error(response.error || "Failed to stop offscreen tab capture");
-  }
-
-  await closeOffscreenDocumentIfOpen();
-}
-
-function connectWebSocket(): void {
-  if (socket && socket.readyState === WebSocket.OPEN) return;
-  if (connecting) return;
-
-  connecting = true;
-
-  try {
-    socket = new WebSocket("ws://localhost:3001");
-
-    socket.onopen = () => {
-      console.log("WebSocket is connected");
-      connecting = false;
-    };
-
-    socket.onmessage = async (message: MessageEvent) => {
-      const text: string =
-        typeof message.data === "string"
-          ? message.data
-          : String(message.data);
-
-      try {
-        await appendTranscript(text);
-      } catch (err) {
-        console.error("Error appending transcript chunk:", err);
-      }
-    };
-
-    socket.onclose = () => {
-      connecting = false;
-      socket = null;
-    };
-
-    socket.onerror = (_err: Event) => {
-      connecting = false;
-
-      if (socket) {
-        try {
-          socket.close();
-        } catch {}
-
-        socket = null;
-      }
-    };
-  } catch {
-    connecting = false;
-    socket = null;
-  }
 }
 
 async function beginRecordingForTab(tabId: number): Promise<RecordingResponse> {
+  const activeTabId = TranscriptStore.getActiveTabId();
+
   if (captureMode !== null) {
     if (activeTabId === tabId && captureMode === "tab") {
       return {
@@ -304,18 +64,18 @@ async function beginRecordingForTab(tabId: number): Promise<RecordingResponse> {
 
   const shouldStartNewTranscriptSession = activeTabId !== tabId;
 
-  connectWebSocket();
+  connectTranscriptWebSocket();
 
   try {
-    await startTabCapturePath(tabId);
+    await TabCaptureController.startTabCapturePath(tabId);
 
     captureMode = "tab";
     isCapturePaused = true;
 
     if (shouldStartNewTranscriptSession) {
-      await startNewTranscriptSession(tabId);
+      await TranscriptStore.startNewTranscriptSession(tabId);
     } else {
-      await setActiveTab(tabId);
+      await TranscriptStore.setActiveTab(tabId);
     }
 
     console.log("Tab capture armed and waiting for video play");
@@ -343,6 +103,8 @@ async function beginRecordingForTab(tabId: number): Promise<RecordingResponse> {
 async function resumeRecordingForTab(
   tabId: number
 ): Promise<RecordingResponse> {
+  const activeTabId = TranscriptStore.getActiveTabId();
+
   if (activeTabId !== tabId || captureMode !== "tab") {
     return {
       ok: false,
@@ -355,8 +117,8 @@ async function resumeRecordingForTab(
   }
 
   try {
-    connectWebSocket();
-    await resumeTabCapturePath();
+    connectTranscriptWebSocket();
+    await TabCaptureController.resumeTabCapturePath();
     isCapturePaused = false;
 
     return { ok: true, info: "Tab capture recording started" };
@@ -378,7 +140,7 @@ async function pauseRecording(): Promise<RecordingResponse> {
   }
 
   try {
-    await pauseTabCapturePath();
+    await TabCaptureController.pauseTabCapturePath();
     isCapturePaused = true;
 
     return { ok: true, info: "Tab capture paused" };
@@ -393,7 +155,7 @@ async function pauseRecording(): Promise<RecordingResponse> {
 async function endRecording(): Promise<RecordingResponse> {
   if (captureMode === "tab") {
     try {
-      await stopTabCapturePath();
+      await TabCaptureController.stopTabCapturePath();
       captureMode = null;
       isCapturePaused = false;
 
@@ -413,7 +175,7 @@ async function endRecording(): Promise<RecordingResponse> {
 }
 
 // Restore transcript state when the service worker starts
-loadTranscriptState().catch((err) => {
+TranscriptStore.loadTranscriptState().catch((err) => {
   console.error("Failed to initialize transcript state:", err);
 });
 
@@ -427,6 +189,8 @@ chrome.action.onClicked.addListener(async (tab) => {
     console.error("Could not identify the clicked tab");
     return;
   }
+
+  const activeTabId = TranscriptStore.getActiveTabId();
 
   if (captureMode !== null && activeTabId === tabId) {
     const stopResponse = await endRecording();
@@ -485,6 +249,7 @@ chrome.runtime.onMessage.addListener(
 
       if (msg && msg.type === "ASK_LECTURE") {
         const requesterTabId = sender.tab?.id;
+        const activeTabId = TranscriptStore.getActiveTabId();
         const question = msg.question?.trim();
 
         if (!question) {
@@ -497,7 +262,7 @@ chrome.runtime.onMessage.addListener(
         let fullTranscript = "";
 
         if (requesterTabId !== undefined && requesterTabId === activeTabId) {
-          fullTranscript = await getFullTranscript();
+          fullTranscript = await TranscriptStore.getFullTranscript();
         } else {
           console.warn(
             "ASK_LECTURE was sent without an active transcript session for this tab."
@@ -572,6 +337,7 @@ chrome.runtime.onMessage.addListener(
 
       if (msg && msg.type === "GENERATE_SUMMARY") {
         const requesterTabId = sender.tab?.id;
+        const activeTabId = TranscriptStore.getActiveTabId();
 
         if (requesterTabId === undefined || requesterTabId !== activeTabId) {
           return {
@@ -580,7 +346,7 @@ chrome.runtime.onMessage.addListener(
           };
         }
 
-        const fullTranscript = await getFullTranscript();
+        const fullTranscript = await TranscriptStore.getFullTranscript();
 
         if (!fullTranscript) {
           return {

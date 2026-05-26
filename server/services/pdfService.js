@@ -1,6 +1,7 @@
 const puppeteer = require("puppeteer");
 const escapeHtml = require("../utils/escapeHtml");
 
+// Build a PDF file from the generated lecture summary.
 async function buildSummaryPdf(summary) {
   const browser = await puppeteer.launch({
     headless: true,
@@ -9,8 +10,10 @@ async function buildSummaryPdf(summary) {
   try {
     const page = await browser.newPage();
 
+    // Escape the summary content before injecting it into HTML.
     const safeSummary = escapeHtml(summary).replace(/\n/g, "<br>");
 
+    // Create the HTML template that will be rendered into a PDF.
     const html = `
       <!DOCTYPE html>
       <html lang="he" dir="rtl">
@@ -47,6 +50,7 @@ async function buildSummaryPdf(summary) {
 
     await page.setContent(html, { waitUntil: "networkidle0" });
 
+    // Generate and return the PDF as a buffer.
     return await page.pdf({
       format: "A4",
       printBackground: true,
@@ -58,6 +62,7 @@ async function buildSummaryPdf(summary) {
       },
     });
   } finally {
+    // Always close the browser after PDF generation.
     await browser.close();
   }
 }
