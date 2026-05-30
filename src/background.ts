@@ -3,14 +3,11 @@ import { SummaryClient } from "./background/summaryClient.js";
 import { AskLectureClient } from "./background/askLectureClient.js";
 import { RecordingController } from "./background/recordingController.js";
 
-// Restore transcript state when the service worker starts
+
 TranscriptStore.loadTranscriptState().catch((err) => {
   console.error("Failed to initialize transcript state:", err);
 });
 
-// Start/stop from the extension icon.
-// The first click arms tabCapture but does not record yet.
-// A second click stops tabCapture and closes the offscreen document.
 chrome.action.onClicked.addListener(async (tab) => {
   const tabId = tab.id;
 
