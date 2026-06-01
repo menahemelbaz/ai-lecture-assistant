@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="AI Lecture Assistant Logo" width="180">
+</p>
+
 # AI Lecture Assistant
 
 AI Lecture Assistant is a Chrome extension designed to help students study recorded lectures more efficiently.
@@ -18,19 +22,25 @@ The extension works while the user watches a recorded lecture and uses the lectu
 
 The extension adds a floating button on top of the lecture page, allowing the user to access the study tools while watching the lecture.
 
-![Main Extension Button](assets/main-button.png)
+<img src="assets/main-button.png" alt="Main Extension Button" width="350">
 
 ### Study Tools Menu
 
 The extension provides quick access to the main learning tools: lecture summaries, lecture-based AI chat, and practice questions.
 
-![Study Tools Menu](assets/feature-buttons.png)
+<img src="assets/feature-buttons.png" alt="Study Tools Menu" width="300">
+
+### Summary Generation
+
+The extension allows the user to generate a lecture summary while watching the recorded lecture.
+
+<img src="assets/summary-process.png" alt="Summary Generation" width="700">
 
 ### Lecture-Based AI Chat
 
 The chat interface allows students to ask questions about the lecture while watching, based on the accumulated lecture transcript.
 
-![Lecture-Based AI Chat](assets/chat-panel.png)
+<img src="assets/chat-panel.png" alt="Lecture-Based AI Chat" width="700">
 
 ## Tech Stack
 
