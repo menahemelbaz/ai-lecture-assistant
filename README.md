@@ -12,6 +12,26 @@ The extension works while the user watches a recorded lecture and uses the lectu
 * AI chat based on the lecture transcript
 * Lecture topic practice
 
+## Screenshots
+
+### Main Extension Button
+
+The extension adds a floating button on top of the lecture page, allowing the user to access the study tools while watching the lecture.
+
+![Main Extension Button](assets/main-button.png)
+
+### Study Tools Menu
+
+The extension provides quick access to the main learning tools: lecture summaries, lecture-based AI chat, and practice questions.
+
+![Study Tools Menu](assets/feature-buttons.png)
+
+### Lecture-Based AI Chat
+
+The chat interface allows students to ask questions about the lecture while watching, based on the accumulated lecture transcript.
+
+![Lecture-Based AI Chat](assets/chat-panel.png)
+
 ## Tech Stack
 
 * TypeScript
@@ -22,7 +42,6 @@ The extension works while the user watches a recorded lecture and uses the lectu
 * Express.js
 * WebSocket
 * OpenAI API
-
 
 ## Architecture
 
