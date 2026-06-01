@@ -77,12 +77,12 @@
 #lecture-chat-panel {
   position: fixed;
   right: 170px;
-  bottom: 30px;
+  bottom: 35px;
   z-index: 9999;
   display: none;
   flex-direction: column;
-  width: 340px;
-  height: 420px;
+  width: 380px;
+  height: 460px;
   overflow: hidden;
   border-radius: 16px;
   background-color: white;
@@ -192,6 +192,7 @@
 
 /* Makes the loading dots fade in and out. */
 @keyframes lecture-chat-dot-pulse {
+
   0%,
   80%,
   100% {

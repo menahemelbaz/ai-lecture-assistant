@@ -1,17 +1,54 @@
 "use strict";
+// Max time between user click and video event.
+const CLICK_TO_VIDEO_EVENT = 2000;
+// Delay before confirming the video is paused.
+const PAUSE_CONFIRMATION = 1000;
+// Track when the user last clicked.
+let lastClickTime = 0;
+const videosWithPlayListener = new WeakSet();
+const videosWithPauseListener = new WeakSet();
+const videosStartedAfterUserClick = new WeakSet();
+const pauseTimeouts = new WeakMap();
+function markUserClick() {
+    lastClickTime = Date.now();
+}
+function didUserClickRecently() {
+    const timeSinceLastClick = Date.now() - lastClickTime;
+    return timeSinceLastClick <= CLICK_TO_VIDEO_EVENT;
+}
+function consumeLastClick() {
+    lastClickTime = 0;
+}
+// Track user clicks on the page.
+// If a video event happens shortly after a click, we treat it as user-initiated.
+document.addEventListener("click", markUserClick, true);
 window.Manager = {
     async setupExtension() {
-        // Create all buttons
+        // Create all extension buttons.
         Buttons.createButtons();
-        // Create a click event for each button
+        // Attach click handlers to the extension buttons.
         Controller.onClick();
     },
     startRecordingOnPlay(video) {
-        // Start recording only when the video is actually playing.
+        // Prevent attaching the same playing listener more than once to the same video.
+        if (videosWithPlayListener.has(video)) {
+            return;
+        }
+        videosWithPlayListener.add(video);
+        // Start recording only when the video starts playing shortly after a user click.
         video.addEventListener("playing", () => {
-            console.log("Video is playing. Sending START_RECORDING.");
+            const wasAlreadyStartedByUser = videosStartedAfterUserClick.has(video);
+            if (!wasAlreadyStartedByUser) {
+                if (!didUserClickRecently()) {
+                    console.log("Ignoring playing event because no recent user click was detected.");
+                    return;
+                }
+                videosStartedAfterUserClick.add(video);
+                consumeLastClick();
+            }
+            console.log("Video is playing after user click. Sending START_RECORDING.");
             chrome.runtime.sendMessage({ type: "START_RECORDING" }, (response) => {
-                // Check for any runtime errors
+                // Check for any runtime errors.
                 if (chrome.runtime.lastError) {
                     console.warn(chrome.runtime.lastError.message);
                     return;
@@ -19,6 +56,7 @@ window.Manager = {
                 if (!response?.ok && response?.error) {
                     if (response.error ===
                         "Click the extension icon on this tab before playing the video") {
+                        alert("Please click the extension icon before starting the lecture.");
                         return;
                     }
                     console.warn(response.error);
@@ -27,22 +65,34 @@ window.Manager = {
         });
     },
     stopRecordingOnPause(video) {
-        // Pause events can happen temporarily on dynamic video sites.
+        // Prevent attaching the same pause listener more than once to the same video.
+        if (videosWithPauseListener.has(video)) {
+            return;
+        }
+        videosWithPauseListener.add(video);
         video.addEventListener("pause", () => {
-            console.log("Video pause event detected. Waiting before stopping.");
-            window.setTimeout(() => {
+            if (!videosStartedAfterUserClick.has(video)) {
+                console.log("Ignoring pause event because the video was not user-started.");
+                return;
+            }
+            if (!didUserClickRecently()) {
+                console.log("Ignoring pause event because no recent user click was detected.");
+                return;
+            }
+            consumeLastClick();
+            console.log("Video pause event detected after user click. Waiting before stopping.");
+            const existingTimeoutId = pauseTimeouts.get(video);
+            if (existingTimeoutId !== undefined) {
+                window.clearTimeout(existingTimeoutId);
+            }
+            const timeoutId = window.setTimeout(() => {
                 if (!video.paused) {
-                    console.log("Video is playing again. STOP_RECORDING was ignored.");
+                    console.log("Video resumed quickly. Ignoring pause event.");
                     return;
                 }
-                if (video.ended) {
-                    console.log("Video ended. Sending STOP_RECORDING.");
-                }
-                else {
-                    console.log("Video is still paused. Sending STOP_RECORDING.");
-                }
+                console.log("Video is still paused. Sending STOP_RECORDING.");
                 chrome.runtime.sendMessage({ type: "STOP_RECORDING" }, (response) => {
-                    // Check for any runtime errors
+                    // Check for any runtime errors.
                     if (chrome.runtime.lastError) {
                         console.warn(chrome.runtime.lastError.message);
                         return;
@@ -51,7 +101,8 @@ window.Manager = {
                         console.warn(response.error);
                     }
                 });
-            }, 700);
+            }, PAUSE_CONFIRMATION);
+            pauseTimeouts.set(video, timeoutId);
         });
     },
 };

@@ -20,12 +20,12 @@ window.Controller = {
         <input
           id="lecture-chat-input"
           type="text"
-          placeholder="הקלד את שאלתך"
+          placeholder="Type your question"
         />
         <button
           id="lecture-chat-send"
-          title="שלח שאלה"
-          aria-label="שלח שאלה"
+          title="Send question"
+          aria-label="Send question"
         >
           <i class="fa-solid fa-arrow-up"></i>
         </button>
@@ -83,7 +83,7 @@ window.Controller = {
         if (loadingMessage) {
             loadingMessage.classList.add("lecture-chat-loading-message");
             loadingMessage.innerHTML = `
-        <span class="lecture-chat-loading-dots" aria-label="ממתין לתשובה">
+        <span class="lecture-chat-loading-dots" aria-label="Thinking...">
           <span></span>
           <span></span>
           <span></span>
@@ -121,7 +121,7 @@ window.Controller = {
         summaryButton.disabled = true;
         summaryButton.innerHTML =
             '<i class="fa-solid fa-spinner fa-spin fa-2x"></i>';
-        summaryButton.title = "מעבד את הסיכום...";
+        summaryButton.title = "Generating summary...";
         try {
             chrome.runtime.sendMessage({
                 type: "GENERATE_SUMMARY",
@@ -130,7 +130,7 @@ window.Controller = {
                 summaryButton.disabled = false;
                 summaryButton.innerHTML =
                     '<i class="fa-solid fa-file-lines fa-2x"></i>';
-                summaryButton.title = "סיכום הרצאה";
+                summaryButton.title = "Lecture Summary";
                 // Check for any runtime errors
                 if (chrome.runtime.lastError) {
                     alert("Connection error. Please try again.");
@@ -148,7 +148,7 @@ window.Controller = {
             summaryButton.disabled = false;
             summaryButton.innerHTML =
                 '<i class="fa-solid fa-file-lines fa-2x"></i>';
-            summaryButton.title = "סיכום הרצאה";
+            summaryButton.title = "Lecture Summary";
             alert("Error generating summary.");
         }
     },

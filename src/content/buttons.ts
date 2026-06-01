@@ -58,7 +58,7 @@ window.Buttons = {
       "3x",
       "buttons",
       "summary",
-      "סכם הרצאה"
+      "Summarize Lecture"
     );
 
     // Create the ask button
@@ -67,7 +67,7 @@ window.Buttons = {
       "3x",
       "buttons",
       "questions",
-      "שאל על ההרצאה"
+      "Ask about the lecture"
     );
 
     // Create the quiz button
@@ -76,7 +76,7 @@ window.Buttons = {
       "3x",
       "buttons",
       "quiz",
-      "תרגל נושאים"
+      "Practice Lecture Topics"
     );
 
     // Add all buttons to the container
