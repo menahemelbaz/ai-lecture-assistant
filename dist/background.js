@@ -32,9 +32,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (msg && msg.type === "START_RECORDING") {
             const tabId = sender.tab?.id;
             if (tabId === undefined) {
-                return { ok: false, error: "Could not identify the active tab" };
+                return {
+                    ok: false,
+                    error: "Could not identify the active tab",
+                };
             }
-            return await RecordingController.resumeRecordingForTab(tabId);
+            const lectureContext = msg.lectureContext;
+            if (!lectureContext) {
+                return {
+                    ok: false,
+                    error: "Lecture context was not provided",
+                };
+            }
+            return await RecordingController.resumeRecordingForTab(tabId, lectureContext, msg.confirmNewSession === true);
         }
         if (msg && msg.type === "STOP_RECORDING") {
             return await RecordingController.pauseRecording();
@@ -50,8 +60,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 };
             }
             let fullTranscript = "";
-            if (requesterTabId !== undefined && requesterTabId === activeTabId) {
-                fullTranscript = await TranscriptStore.getFullTranscript();
+            if (requesterTabId !== undefined &&
+                requesterTabId === activeTabId) {
+                fullTranscript =
+                    await TranscriptStore.getFullTranscript();
             }
             else {
                 console.warn("ASK_LECTURE was sent without an active transcript session for this tab.");
@@ -61,7 +73,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (msg && msg.type === "GENERATE_SUMMARY") {
             const requesterTabId = sender.tab?.id;
             const activeTabId = TranscriptStore.getActiveTabId();
-            if (requesterTabId === undefined || requesterTabId !== activeTabId) {
+            if (requesterTabId === undefined ||
+                requesterTabId !== activeTabId) {
                 return {
                     ok: false,
                     error: "No active transcript session for this tab",
@@ -76,12 +89,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             }
             return await SummaryClient.generateSummaryPdf(fullTranscript);
         }
-        return { ok: false, error: "Unknown message type" };
+        return {
+            ok: false,
+            error: "Unknown message type",
+        };
     })()
         .then(sendResponse)
         .catch((err) => {
-        const errorMessage = err instanceof Error ? err.message : "Unexpected background error";
-        sendResponse({ ok: false, error: errorMessage });
+        const errorMessage = err instanceof Error
+            ? err.message
+            : "Unexpected background error";
+        sendResponse({
+            ok: false,
+            error: errorMessage,
+        });
     });
     return true;
 });

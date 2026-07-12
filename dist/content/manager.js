@@ -19,8 +19,61 @@ function didUserClickRecently() {
 function consumeLastClick() {
     lastClickTime = 0;
 }
+/**
+ * Build the context used to identify the current lecture.
+ */
+function getLectureContext(video) {
+    const duration = video.duration;
+    return {
+        pageUrl: window.location.href,
+        pageTitle: document.title,
+        videoSrc: video.currentSrc || video.src || null,
+        videoDuration: Number.isFinite(duration) && duration > 0
+            ? Math.round(duration)
+            : null,
+    };
+}
+/**
+ * Request recording for the current lecture.
+ */
+function requestRecordingStart(video, confirmNewSession = false) {
+    chrome.runtime.sendMessage({
+        type: "START_RECORDING",
+        lectureContext: getLectureContext(video),
+        confirmNewSession,
+    }, (response) => {
+        if (chrome.runtime.lastError) {
+            console.warn(chrome.runtime.lastError.message);
+            videosStartedAfterUserClick.delete(video);
+            return;
+        }
+        if (response?.requiresSessionConfirmation) {
+            const confirmed = window.confirm("A new lecture was detected.\n\n" +
+                "Starting a new session will permanently delete " +
+                "the current transcript.\n\n" +
+                "Do you want to continue?");
+            if (confirmed) {
+                requestRecordingStart(video, true);
+            }
+            else {
+                videosStartedAfterUserClick.delete(video);
+            }
+            return;
+        }
+        if (!response?.ok && response?.error) {
+            if (response.error ===
+                "Click the extension icon on this tab before playing the video") {
+                window.alert("Please click the extension icon before starting the lecture.");
+                videosStartedAfterUserClick.delete(video);
+                return;
+            }
+            console.warn(response.error);
+            videosStartedAfterUserClick.delete(video);
+        }
+    });
+}
 // Track user clicks on the page.
-// If a video event happens shortly after a click, we treat it as user-initiated.
+// If a video event happens shortly after a click, treat it as user-initiated.
 document.addEventListener("click", markUserClick, true);
 window.Manager = {
     async setupExtension() {
@@ -30,12 +83,12 @@ window.Manager = {
         Controller.onClick();
     },
     startRecordingOnPlay(video) {
-        // Prevent attaching the same playing listener more than once to the same video.
+        // Prevent duplicate playing listeners on the same video.
         if (videosWithPlayListener.has(video)) {
             return;
         }
         videosWithPlayListener.add(video);
-        // Start recording only when the video starts playing shortly after a user click.
+        // Start recording only after a user-initiated video play.
         video.addEventListener("playing", () => {
             const wasAlreadyStartedByUser = videosStartedAfterUserClick.has(video);
             if (!wasAlreadyStartedByUser) {
@@ -47,25 +100,11 @@ window.Manager = {
                 consumeLastClick();
             }
             console.log("Video is playing after user click. Sending START_RECORDING.");
-            chrome.runtime.sendMessage({ type: "START_RECORDING" }, (response) => {
-                // Check for any runtime errors.
-                if (chrome.runtime.lastError) {
-                    console.warn(chrome.runtime.lastError.message);
-                    return;
-                }
-                if (!response?.ok && response?.error) {
-                    if (response.error ===
-                        "Click the extension icon on this tab before playing the video") {
-                        alert("Please click the extension icon before starting the lecture.");
-                        return;
-                    }
-                    console.warn(response.error);
-                }
-            });
+            requestRecordingStart(video);
         });
     },
     stopRecordingOnPause(video) {
-        // Prevent attaching the same pause listener more than once to the same video.
+        // Prevent duplicate pause listeners on the same video.
         if (videosWithPauseListener.has(video)) {
             return;
         }
@@ -91,8 +130,9 @@ window.Manager = {
                     return;
                 }
                 console.log("Video is still paused. Sending STOP_RECORDING.");
-                chrome.runtime.sendMessage({ type: "STOP_RECORDING" }, (response) => {
-                    // Check for any runtime errors.
+                chrome.runtime.sendMessage({
+                    type: "STOP_RECORDING",
+                }, (response) => {
                     if (chrome.runtime.lastError) {
                         console.warn(chrome.runtime.lastError.message);
                         return;

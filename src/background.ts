@@ -3,7 +3,6 @@ import { SummaryClient } from "./background/summaryClient.js";
 import { AskLectureClient } from "./background/askLectureClient.js";
 import { RecordingController } from "./background/recordingController.js";
 
-
 TranscriptStore.loadTranscriptState().catch((err) => {
   console.error("Failed to initialize transcript state:", err);
 });
@@ -29,7 +28,8 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
-  const startResponse = await RecordingController.beginRecordingForTab(tabId);
+  const startResponse =
+    await RecordingController.beginRecordingForTab(tabId);
 
   if (!startResponse.ok) {
     console.error(
@@ -61,10 +61,26 @@ chrome.runtime.onMessage.addListener(
         const tabId = sender.tab?.id;
 
         if (tabId === undefined) {
-          return { ok: false, error: "Could not identify the active tab" };
+          return {
+            ok: false,
+            error: "Could not identify the active tab",
+          };
         }
 
-        return await RecordingController.resumeRecordingForTab(tabId);
+        const lectureContext = msg.lectureContext;
+
+        if (!lectureContext) {
+          return {
+            ok: false,
+            error: "Lecture context was not provided",
+          };
+        }
+
+        return await RecordingController.resumeRecordingForTab(
+          tabId,
+          lectureContext,
+          msg.confirmNewSession === true
+        );
       }
 
       if (msg && msg.type === "STOP_RECORDING") {
@@ -85,48 +101,70 @@ chrome.runtime.onMessage.addListener(
 
         let fullTranscript = "";
 
-        if (requesterTabId !== undefined && requesterTabId === activeTabId) {
-          fullTranscript = await TranscriptStore.getFullTranscript();
+        if (
+          requesterTabId !== undefined &&
+          requesterTabId === activeTabId
+        ) {
+          fullTranscript =
+            await TranscriptStore.getFullTranscript();
         } else {
           console.warn(
             "ASK_LECTURE was sent without an active transcript session for this tab."
           );
         }
 
-        return await AskLectureClient.askLecture(question, fullTranscript);
+        return await AskLectureClient.askLecture(
+          question,
+          fullTranscript
+        );
       }
 
       if (msg && msg.type === "GENERATE_SUMMARY") {
         const requesterTabId = sender.tab?.id;
         const activeTabId = TranscriptStore.getActiveTabId();
 
-        if (requesterTabId === undefined || requesterTabId !== activeTabId) {
+        if (
+          requesterTabId === undefined ||
+          requesterTabId !== activeTabId
+        ) {
           return {
             ok: false,
             error: "No active transcript session for this tab",
           };
         }
 
-        const fullTranscript = await TranscriptStore.getFullTranscript();
+        const fullTranscript =
+          await TranscriptStore.getFullTranscript();
 
         if (!fullTranscript) {
           return {
             ok: false,
-            error: "אין תמלול זמין לסיכום, אנא הפעל הקלטה תחילה",
+            error:
+              "אין תמלול זמין לסיכום, אנא הפעל הקלטה תחילה",
           };
         }
 
-        return await SummaryClient.generateSummaryPdf(fullTranscript);
+        return await SummaryClient.generateSummaryPdf(
+          fullTranscript
+        );
       }
 
-      return { ok: false, error: "Unknown message type" };
+      return {
+        ok: false,
+        error: "Unknown message type",
+      };
     })()
       .then(sendResponse)
       .catch((err: unknown) => {
         const errorMessage =
-          err instanceof Error ? err.message : "Unexpected background error";
+          err instanceof Error
+            ? err.message
+            : "Unexpected background error";
 
-        sendResponse({ ok: false, error: errorMessage });
+        sendResponse({
+          ok: false,
+          error: errorMessage,
+        });
       });
 
     return true;

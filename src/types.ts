@@ -10,17 +10,34 @@ type ExtensionMessageType =
   | "RESUME_TAB_CAPTURE_INTERNAL"
   | "STOP_TAB_CAPTURE_INTERNAL";
 
+interface LectureContext {
+  pageUrl: string;
+  pageTitle: string;
+  videoSrc: string | null;
+  videoDuration: number | null;
+}
+
+interface LectureSession {
+  id: string;
+  tabId: number;
+  context: LectureContext;
+  startedAt: number;
+}
+
 interface ExtensionMessage {
   type: ExtensionMessageType;
   target?: "offscreen";
   streamId?: string;
   question?: string;
+  lectureContext?: LectureContext;
+  confirmNewSession?: boolean;
 }
 
 interface RecordingResponse {
   ok: boolean;
   info?: string;
   error?: string;
+  requiresSessionConfirmation?: boolean;
 }
 
 interface SummaryResponse {
