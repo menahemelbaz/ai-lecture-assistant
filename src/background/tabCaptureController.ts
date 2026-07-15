@@ -11,14 +11,19 @@ function sendRuntimeMessage<T>(message: ExtensionMessage): Promise<T> {
   });
 }
 
-async function ensureOffscreenDocument(): Promise<void> {
+/**
+ * Return whether the offscreen audio-capture document currently exists.
+ */
+async function hasOffscreenDocument(): Promise<boolean> {
   const contexts = await chrome.runtime.getContexts({});
 
-  const hasOffscreenDocument = contexts.some(
+  return contexts.some(
     (context) => context.contextType === "OFFSCREEN_DOCUMENT"
   );
+}
 
-  if (hasOffscreenDocument) {
+async function ensureOffscreenDocument(): Promise<void> {
+  if (await hasOffscreenDocument()) {
     return;
   }
 
@@ -30,13 +35,7 @@ async function ensureOffscreenDocument(): Promise<void> {
 }
 
 async function closeOffscreenDocumentIfOpen(): Promise<void> {
-  const contexts = await chrome.runtime.getContexts({});
-
-  const hasOffscreenDocument = contexts.some(
-    (context) => context.contextType === "OFFSCREEN_DOCUMENT"
-  );
-
-  if (!hasOffscreenDocument) {
+  if (!(await hasOffscreenDocument())) {
     return;
   }
 
@@ -97,6 +96,7 @@ async function stopTabCapturePath(): Promise<void> {
 }
 
 export const TabCaptureController = {
+  hasOffscreenDocument,
   startTabCapturePath,
   pauseTabCapturePath,
   resumeTabCapturePath,

@@ -3,9 +3,14 @@ import { SummaryClient } from "./background/summaryClient.js";
 import { AskLectureClient } from "./background/askLectureClient.js";
 import { RecordingController } from "./background/recordingController.js";
 
-TranscriptStore.loadTranscriptState().catch((err) => {
-  console.error("Failed to initialize transcript state:", err);
-});
+// Load the transcript state first, then reconcile the recording state with the
+// live offscreen document. Ordering matters: transcript state must be ready
+// before the WebSocket may start appending chunks again.
+TranscriptStore.loadTranscriptState()
+  .then(() => RecordingController.restoreCaptureState())
+  .catch((err) => {
+    console.error("Failed to initialize background state:", err);
+  });
 
 chrome.action.onClicked.addListener(async (tab) => {
   const tabId = tab.id;
@@ -15,7 +20,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
-  if (RecordingController.isActiveRecordingTab(tabId)) {
+  if (await RecordingController.isActiveRecordingTab(tabId)) {
     const stopResponse = await RecordingController.endRecording();
 
     if (!stopResponse.ok) {

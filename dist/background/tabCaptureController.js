@@ -9,10 +9,15 @@ function sendRuntimeMessage(message) {
         });
     });
 }
-async function ensureOffscreenDocument() {
+/**
+ * Return whether the offscreen audio-capture document currently exists.
+ */
+async function hasOffscreenDocument() {
     const contexts = await chrome.runtime.getContexts({});
-    const hasOffscreenDocument = contexts.some((context) => context.contextType === "OFFSCREEN_DOCUMENT");
-    if (hasOffscreenDocument) {
+    return contexts.some((context) => context.contextType === "OFFSCREEN_DOCUMENT");
+}
+async function ensureOffscreenDocument() {
+    if (await hasOffscreenDocument()) {
         return;
     }
     await chrome.offscreen.createDocument({
@@ -22,9 +27,7 @@ async function ensureOffscreenDocument() {
     });
 }
 async function closeOffscreenDocumentIfOpen() {
-    const contexts = await chrome.runtime.getContexts({});
-    const hasOffscreenDocument = contexts.some((context) => context.contextType === "OFFSCREEN_DOCUMENT");
-    if (!hasOffscreenDocument) {
+    if (!(await hasOffscreenDocument())) {
         return;
     }
     await chrome.offscreen.closeDocument();
@@ -72,6 +75,7 @@ async function stopTabCapturePath() {
     await closeOffscreenDocumentIfOpen();
 }
 export const TabCaptureController = {
+    hasOffscreenDocument,
     startTabCapturePath,
     pauseTabCapturePath,
     resumeTabCapturePath,

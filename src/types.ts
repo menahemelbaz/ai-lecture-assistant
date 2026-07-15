@@ -10,6 +10,10 @@ type ExtensionMessageType =
   | "RESUME_TAB_CAPTURE_INTERNAL"
   | "STOP_TAB_CAPTURE_INTERNAL";
 
+// Recording lifecycle state, persisted so it survives service worker restarts.
+type CaptureMode = "tab";
+type CaptureStatus = "armed" | "recording" | "paused";
+
 interface LectureContext {
   pageUrl: string;
   pageTitle: string;
@@ -55,4 +59,11 @@ interface AskLectureResponse {
   ok: boolean;
   answer?: string;
   error?: string;
+}
+
+interface CaptureRecord {
+  mode: CaptureMode;
+  status: CaptureStatus;
+  tabId: number;
+  updatedAt: number;
 }
