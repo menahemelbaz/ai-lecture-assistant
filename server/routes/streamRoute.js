@@ -25,7 +25,9 @@ function createStreamRoute({ uploadsDir, broadcast }) {
 
       const transcription = await transcribeAudioFile(tempFile);
 
-      broadcast(transcription);
+      if (transcription) {
+        broadcast(transcription);
+      }
 
       res.json({ text: transcription });
     } catch (err) {

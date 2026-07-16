@@ -1,6 +1,7 @@
 // Shared type definitions for the Audio Script extension
 
 type ExtensionMessageType =
+  | "CAPTURE_ARMED"
   | "START_RECORDING"
   | "STOP_RECORDING"
   | "ASK_LECTURE"

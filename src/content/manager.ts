@@ -10,6 +10,7 @@ let lastClickTime = 0;
 const videosWithPlayListener = new WeakSet<HTMLVideoElement>();
 const videosWithPauseListener = new WeakSet<HTMLVideoElement>();
 const videosStartedAfterUserClick = new WeakSet<HTMLVideoElement>();
+const videosWithPendingStartRequest = new WeakSet<HTMLVideoElement>();
 const pauseTimeouts = new WeakMap<HTMLVideoElement, number>();
 
 function markUserClick(): void {
@@ -52,6 +53,13 @@ function requestRecordingStart(
   video: HTMLVideoElement,
   confirmNewSession = false
 ): void {
+  // Prevent simultaneous duplicate requests for the same video.
+  if (videosWithPendingStartRequest.has(video)) {
+    return;
+  }
+
+  videosWithPendingStartRequest.add(video);
+
   chrome.runtime.sendMessage(
     {
       type: "START_RECORDING",
@@ -59,6 +67,8 @@ function requestRecordingStart(
       confirmNewSession,
     },
     (response: RecordingResponse) => {
+      videosWithPendingStartRequest.delete(video);
+
       if (chrome.runtime.lastError) {
         console.warn(chrome.runtime.lastError.message);
         videosStartedAfterUserClick.delete(video);
@@ -102,9 +112,55 @@ function requestRecordingStart(
   );
 }
 
+/**
+ * Start recording immediately if capture was armed while the video
+ * was already playing.
+ */
+function startRecordingIfVideoIsAlreadyPlaying(): boolean {
+  const video = document.querySelector<HTMLVideoElement>("video");
+
+  if (!video || video.paused || video.ended) {
+    return false;
+  }
+
+  videosStartedAfterUserClick.add(video);
+  consumeLastClick();
+
+  console.log(
+    "Tab capture was armed while the video was already playing. " +
+    "Sending START_RECORDING."
+  );
+
+  requestRecordingStart(video);
+  return true;
+}
+
 // Track user clicks on the page.
 // If a video event happens shortly after a click, treat it as user-initiated.
 document.addEventListener("click", markUserClick, true);
+
+// Receive notification from the background after tab capture is armed.
+chrome.runtime.onMessage.addListener(
+  (
+    message: ExtensionMessage,
+    _sender: chrome.runtime.MessageSender,
+    sendResponse: (response: RecordingResponse) => void
+  ) => {
+    if (message.type !== "CAPTURE_ARMED") {
+      return;
+    }
+
+    const recordingRequested =
+      startRecordingIfVideoIsAlreadyPlaying();
+
+    sendResponse({
+      ok: true,
+      info: recordingRequested
+        ? "Recording requested for the playing video"
+        : "Capture armed and waiting for the video to play",
+    });
+  }
+);
 
 window.Manager = {
   async setupExtension(): Promise<void> {

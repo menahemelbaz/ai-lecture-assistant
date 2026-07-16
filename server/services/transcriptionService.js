@@ -10,12 +10,11 @@ async function transcribeAudioFile(filePath) {
     response_format: "text",
   });
 
-  // Stop the flow if the transcription result is empty.
   if (!transcription || !transcription.trim()) {
-    throw new Error("Transcription returned empty content");
+    return "";
   }
 
-  return transcription;
+  return transcription.trim();
 }
 
 module.exports = {

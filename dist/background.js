@@ -26,6 +26,21 @@ chrome.action.onClicked.addListener(async (tab) => {
     const startResponse = await RecordingController.beginRecordingForTab(tabId);
     if (!startResponse.ok) {
         console.error("Error arming tab capture from action click:", startResponse.error);
+        return;
+    }
+    // Notify the content script that capture is armed.
+    // If the video is already playing, the content script will immediately
+    // request that recording begin without waiting for another playing event.
+    try {
+        await chrome.tabs.sendMessage(tabId, {
+            type: "CAPTURE_ARMED",
+        });
+    }
+    catch (error) {
+        const message = error instanceof Error
+            ? error.message
+            : "Could not notify the content script";
+        console.warn("Tab capture was armed, but the content script could not be notified:", message);
     }
 });
 // Central message router invoked by the content scripts injected into tabs.

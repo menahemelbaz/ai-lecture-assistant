@@ -1,7 +1,27 @@
 import { TranscriptStore } from "./transcriptStore.js";
 import { CaptureStore } from "./captureStore.js";
-import { connectWebSocket } from "./websocketClient.js";
+import { connectWebSocket, disconnectWebSocket } from "./websocketClient.js";
 import { TabCaptureController } from "./tabCaptureController.js";
+
+// Serialize recording state changes so pause, resume, and stop operations
+// cannot run at the same time.
+let recordingOperationQueue: Promise<void> = Promise.resolve();
+
+function runRecordingOperation<T>(
+  operation: () => Promise<T>
+): Promise<T> {
+  const result = recordingOperationQueue.then(
+    operation,
+    operation
+  );
+
+  recordingOperationQueue = result.then(
+    () => undefined,
+    () => undefined
+  );
+
+  return result;
+}
 
 /**
  * Connect to the transcription WebSocket and store incoming transcript chunks.
@@ -17,7 +37,9 @@ function connectTranscriptWebSocket(): void {
  * Reads the persisted capture record, so it stays correct even after the
  * service worker has been restarted.
  */
-async function isActiveRecordingTab(tabId: number): Promise<boolean> {
+async function isActiveRecordingTab(
+  tabId: number
+): Promise<boolean> {
   const capture = await CaptureStore.getCaptureState();
 
   return capture !== null && capture.tabId === tabId;
@@ -39,7 +61,8 @@ async function restoreCaptureState(): Promise<void> {
     return;
   }
 
-  const offscreenAlive = await TabCaptureController.hasOffscreenDocument();
+  const offscreenAlive =
+    await TabCaptureController.hasOffscreenDocument();
 
   // The offscreen document is gone, so no capture can be running.
   // Clear the stale record so the UI and controller agree again.
@@ -62,7 +85,8 @@ async function restoreCaptureState(): Promise<void> {
 async function beginRecordingForTab(
   tabId: number
 ): Promise<RecordingResponse> {
-  const existingCapture = await CaptureStore.getCaptureState();
+  const existingCapture =
+    await CaptureStore.getCaptureState();
 
   if (existingCapture !== null) {
     if (existingCapture.tabId === tabId) {
@@ -90,17 +114,22 @@ async function beginRecordingForTab(
       updatedAt: Date.now(),
     });
 
-    console.log("Tab capture armed and waiting for video play");
+    console.log(
+      "Tab capture armed and waiting for video play"
+    );
 
     return {
       ok: true,
-      info: "Tab capture armed. Recording will start when the video plays.",
+      info:
+        "Tab capture armed. Recording will start when the video plays.",
     };
   } catch (error) {
     await CaptureStore.clearCaptureState();
 
     const message =
-      error instanceof Error ? error.message : "Failed to start tab capture";
+      error instanceof Error
+        ? error.message
+        : "Failed to start tab capture";
 
     console.error("tabCapture path failed:", message);
 
@@ -114,148 +143,174 @@ async function beginRecordingForTab(
 /**
  * Resume audio recording for the armed tab.
  */
-async function resumeRecordingForTab(
+function resumeRecordingForTab(
   tabId: number,
   lectureContext: LectureContext,
   confirmNewSession = false
 ): Promise<RecordingResponse> {
-  const capture = await CaptureStore.getCaptureState();
+  return runRecordingOperation(async () => {
+    const capture = await CaptureStore.getCaptureState();
 
-  if (capture === null || capture.tabId !== tabId) {
-    return {
-      ok: false,
-      error: "Click the extension icon on this tab before playing the video",
-    };
-  }
-
-  const currentSession = TranscriptStore.getCurrentSession();
-
-  const isCurrentLecture =
-    currentSession !== null &&
-    currentSession.tabId === tabId &&
-    TranscriptStore.isSameLectureContext(
-      currentSession.context,
-      lectureContext
-    );
-
-  if (!currentSession) {
-    await TranscriptStore.startNewTranscriptSession(tabId, lectureContext);
-  } else if (!isCurrentLecture) {
-    if (TranscriptStore.hasTranscript() && !confirmNewSession) {
+    if (capture === null || capture.tabId !== tabId) {
       return {
         ok: false,
-        requiresSessionConfirmation: true,
-        error: "Starting a new session will clear the current transcript",
+        error:
+          "Click the extension icon on this tab before playing the video",
       };
     }
 
-    await TranscriptStore.startNewTranscriptSession(tabId, lectureContext);
-  }
+    const currentSession =
+      TranscriptStore.getCurrentSession();
 
-  if (capture.status === "recording") {
-    return {
-      ok: true,
-      info: "Tab capture already recording",
-    };
-  }
+    const isCurrentLecture =
+      currentSession !== null &&
+      currentSession.tabId === tabId &&
+      TranscriptStore.isSameLectureContext(
+        currentSession.context,
+        lectureContext
+      );
 
-  try {
-    connectTranscriptWebSocket();
+    if (!currentSession) {
+      await TranscriptStore.startNewTranscriptSession(
+        tabId,
+        lectureContext
+      );
+    } else if (!isCurrentLecture) {
+      if (
+        TranscriptStore.hasTranscript() &&
+        !confirmNewSession
+      ) {
+        return {
+          ok: false,
+          requiresSessionConfirmation: true,
+          error:
+            "Starting a new session will clear the current transcript",
+        };
+      }
 
-    await TabCaptureController.resumeTabCapturePath();
+      await TranscriptStore.startNewTranscriptSession(
+        tabId,
+        lectureContext
+      );
+    }
 
-    await CaptureStore.updateCaptureStatus("recording");
+    if (capture.status === "recording") {
+      return {
+        ok: true,
+        info: "Tab capture already recording",
+      };
+    }
 
-    return {
-      ok: true,
-      info: "Tab capture recording started",
-    };
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to resume tab capture";
+    try {
+      connectTranscriptWebSocket();
 
-    return {
-      ok: false,
-      error: message,
-    };
-  }
+      await TabCaptureController.resumeTabCapturePath();
+
+      await CaptureStore.updateCaptureStatus("recording");
+
+      return {
+        ok: true,
+        info: "Tab capture recording started",
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to resume tab capture";
+
+      return {
+        ok: false,
+        error: message,
+      };
+    }
+  });
 }
 
 /**
  * Pause the active tab capture session.
  */
-async function pauseRecording(): Promise<RecordingResponse> {
-  const capture = await CaptureStore.getCaptureState();
+function pauseRecording(): Promise<RecordingResponse> {
+  return runRecordingOperation(async () => {
+    const capture = await CaptureStore.getCaptureState();
 
-  if (capture === null) {
-    return {
-      ok: true,
-      info: "No active recording to pause",
-    };
-  }
+    if (capture === null) {
+      return {
+        ok: true,
+        info: "No active recording to pause",
+      };
+    }
 
-  if (capture.status !== "recording") {
-    return {
-      ok: true,
-      info: "Tab capture already paused",
-    };
-  }
+    if (capture.status !== "recording") {
+      return {
+        ok: true,
+        info: "Tab capture already paused",
+      };
+    }
 
-  try {
-    await TabCaptureController.pauseTabCapturePath();
+    try {
+      await TabCaptureController.pauseTabCapturePath();
 
-    await CaptureStore.updateCaptureStatus("paused");
+      await CaptureStore.updateCaptureStatus("paused");
 
-    return {
-      ok: true,
-      info: "Tab capture paused",
-    };
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to pause tab capture";
+      return {
+        ok: true,
+        info: "Tab capture paused",
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to pause tab capture";
 
-    return {
-      ok: false,
-      error: message,
-    };
-  }
+      return {
+        ok: false,
+        error: message,
+      };
+    }
+  });
 }
 
 /**
  * Stop the active tab capture session.
  */
-async function endRecording(): Promise<RecordingResponse> {
-  const capture = await CaptureStore.getCaptureState();
+function endRecording(): Promise<RecordingResponse> {
+  return runRecordingOperation(async () => {
+    const capture = await CaptureStore.getCaptureState();
 
-  if (capture === null) {
-    return {
-      ok: true,
-      info: "No active recording to stop",
-    };
-  }
+    if (capture === null) {
+      return {
+        ok: true,
+        info: "No active recording to stop",
+      };
+    }
 
-  try {
-    await TabCaptureController.stopTabCapturePath();
+    try {
+      await TabCaptureController.stopTabCapturePath();
 
-    await CaptureStore.clearCaptureState();
+      disconnectWebSocket();
+      await CaptureStore.clearCaptureState();
 
-    return {
-      ok: true,
-      info: "Tab capture stopped",
-    };
-  } catch (error) {
-    // Even if the stop path fails, drop the record so we never get stuck in a
-    // permanent "recording" state that no longer reflects reality.
-    await CaptureStore.clearCaptureState();
+      return {
+        ok: true,
+        info: "Tab capture stopped",
+      };
+    } catch (error) {
+      // Even if the stop path fails, drop the record so we never get stuck in a
+      // permanent "recording" state that no longer reflects reality.
+      disconnectWebSocket();
+      await CaptureStore.clearCaptureState();
 
-    const message =
-      error instanceof Error ? error.message : "Failed to stop tab capture";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to stop tab capture";
 
-    return {
-      ok: false,
-      error: message,
-    };
-  }
+      return {
+        ok: false,
+        error: message,
+      };
+    }
+  });
 }
 
 export const RecordingController = {
