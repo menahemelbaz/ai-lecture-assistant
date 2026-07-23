@@ -21,33 +21,25 @@ chrome.runtime.onMessage.addListener(
 
         await AudioCaptureController.startTabCapture(message.streamId);
 
-        return {
-          ok: true,
-        };
+        return { ok: true };
       }
 
       if (message.type === "PAUSE_TAB_CAPTURE_INTERNAL") {
         await AudioCaptureController.pauseTabCapture();
 
-        return {
-          ok: true,
-        };
+        return { ok: true };
       }
 
       if (message.type === "RESUME_TAB_CAPTURE_INTERNAL") {
         await AudioCaptureController.resumeTabCapture();
 
-        return {
-          ok: true,
-        };
+        return { ok: true };
       }
 
       if (message.type === "STOP_TAB_CAPTURE_INTERNAL") {
         await AudioCaptureController.stopTabCapture();
 
-        return {
-          ok: true,
-        };
+        return { ok: true };
       }
 
       return {
@@ -58,7 +50,9 @@ chrome.runtime.onMessage.addListener(
       .then(sendResponse)
       .catch((error: unknown) => {
         const message =
-          error instanceof Error ? error.message : "Unexpected offscreen error";
+          error instanceof Error
+            ? error.message
+            : "Unexpected offscreen error";
 
         sendResponse({
           ok: false,

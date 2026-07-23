@@ -1,4 +1,4 @@
-// Global declarations for cross-file access in content scripts
+// Global type declarations for objects shared across content-script files.
 
 interface Window {
   Buttons: {
@@ -15,18 +15,11 @@ interface Window {
   };
 
   Controller: {
-    textSummary(summaryButton: HTMLButtonElement): Promise<void>;
     createChat(): HTMLDivElement;
+    restoreChatHistory(): void;
     toggleChatPanel(): void;
-    addChatMessage(
-      text: string,
-      sender: "user" | "assistant"
-    ): HTMLDivElement | null;
-    sendChatMessage(): void;
-    onClick(): void;
     createQuizPanel(): HTMLDivElement;
     toggleQuizPanel(): void;
-    restoreChatHistory(): void;
     setQuizStatus(text: string): void;
     loadQuizTopics(): void;
     renderQuizTopics(topics: string[]): void;
@@ -37,6 +30,13 @@ interface Window {
       options: QuizOption[],
       chosen: QuizOption
     ): void;
+    addChatMessage(
+      text: string,
+      sender: "user" | "assistant"
+    ): HTMLDivElement | null;
+    sendChatMessage(): void;
+    textSummary(summaryButton: HTMLButtonElement): Promise<void>;
+    onClick(): void;
   };
 
   Manager: {

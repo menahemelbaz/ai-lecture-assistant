@@ -4,6 +4,7 @@ import { StreamUploader } from "./streamUploader.js";
 const TARGET_SAMPLE_RATE = 16000;
 const BUFFER_DURATION_SECONDS = 5;
 
+// Extends the standard media constraints with Chrome's tab-capture properties.
 type ChromeTabAudioConstraints = MediaTrackConstraints & {
     mandatory: {
         chromeMediaSource: "tab";
@@ -27,6 +28,7 @@ function resetBufferedAudio(): void {
     bufferedSamples = 0;
 }
 
+// Detach the current buffer before upload so new samples can accumulate separately.
 function takeBufferedAudio(): BufferedAudioPacket | null {
     if (bufferedSamples === 0) {
         return null;
@@ -38,6 +40,7 @@ function takeBufferedAudio(): BufferedAudioPacket | null {
     };
 
     resetBufferedAudio();
+
     return packet;
 }
 
@@ -49,6 +52,7 @@ function queueBufferedAudioUpload(packet: BufferedAudioPacket): void {
     StreamUploader.queueUpload(packet, getCurrentSampleRate());
 }
 
+// Upload any remaining partial packet before a capture state transition completes.
 async function flushBufferedAudio(): Promise<void> {
     const packet = takeBufferedAudio();
 
@@ -60,6 +64,7 @@ async function flushBufferedAudio(): Promise<void> {
     await StreamUploader.waitForPendingUploads();
 }
 
+// Disconnect each node independently because the graph may be partially initialized.
 function disconnectAudioGraph(): void {
     try {
         sourceNode?.disconnect();
@@ -98,7 +103,7 @@ async function startTabCapture(streamId: string): Promise<void> {
 
     capturedStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-    // Re-route captured audio back to the speakers so the user keeps hearing the tab.
+    // Route the captured audio back to the output so the tab remains audible.
     audioContext = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
     await audioContext.resume();
 
@@ -110,6 +115,7 @@ async function startTabCapture(streamId: string): Promise<void> {
     sourceNode.connect(playbackGainNode);
     playbackGainNode.connect(audioContext.destination);
 
+    // Keep the processor connected through a silent output node so audio events continue.
     processorNode = audioContext.createScriptProcessor(4096, 1, 1);
     silentGainNode = audioContext.createGain();
     silentGainNode.gain.value = 0;
@@ -130,6 +136,7 @@ async function startTabCapture(streamId: string): Promise<void> {
         bufferedChunks.push(new Float32Array(input));
         bufferedSamples += input.length;
 
+        // Silence the processor's output because playback uses a separate gain path.
         const output = event.outputBuffer.getChannelData(0);
         output.fill(0);
 
@@ -142,8 +149,7 @@ async function startTabCapture(streamId: string): Promise<void> {
         }
     };
 
-    // Start in paused mode.
-    // Actual recording starts only after the video play event.
+    // Remain paused until the content script reports that video playback has started.
     isCapturing = false;
 }
 
@@ -172,6 +178,7 @@ async function stopTabCapture(): Promise<void> {
 
     isCapturing = false;
 
+    // Stop receiving new samples before flushing and releasing capture resources.
     if (processorNode) {
         processorNode.onaudioprocess = null;
     }

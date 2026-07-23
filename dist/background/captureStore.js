@@ -1,7 +1,5 @@
 const CAPTURE_STATE_STORAGE_KEY = "activeCaptureState";
-/**
- * Validate that a stored value is a well-formed capture record.
- */
+// Verifies that a value loaded from storage is a valid capture record.
 function isCaptureRecord(value) {
     if (!value || typeof value !== "object") {
         return false;
@@ -14,10 +12,7 @@ function isCaptureRecord(value) {
         typeof record.tabId === "number" &&
         typeof record.updatedAt === "number");
 }
-/**
- * Read the persisted capture record. Storage is the single source of truth,
- * so this is safe to call after the service worker has been restarted.
- */
+// Reads the persisted state used to restore capture after a service worker restart.
 async function getCaptureState() {
     try {
         const result = await chrome.storage.local.get(CAPTURE_STATE_STORAGE_KEY);
@@ -29,9 +24,7 @@ async function getCaptureState() {
         return null;
     }
 }
-/**
- * Persist a capture record, or clear it entirely when passed null.
- */
+// Persists a capture record or removes the stored state when passed null.
 async function setCaptureState(record) {
     try {
         if (record === null) {
@@ -46,9 +39,7 @@ async function setCaptureState(record) {
         console.error("Error saving capture state:", err);
     }
 }
-/**
- * Update only the status of the existing capture record.
- */
+// Updates the status and timestamp of the currently stored capture record.
 async function updateCaptureStatus(status) {
     const current = await getCaptureState();
     if (!current) {
@@ -60,9 +51,7 @@ async function updateCaptureStatus(status) {
         updatedAt: Date.now(),
     });
 }
-/**
- * Remove the capture record. Called when recording stops or is reconciled away.
- */
+// Removes the persisted capture state after recording ends.
 async function clearCaptureState() {
     await setCaptureState(null);
 }

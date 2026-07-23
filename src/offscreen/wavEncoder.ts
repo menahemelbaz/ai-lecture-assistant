@@ -1,8 +1,10 @@
+// Represents buffered mono audio awaiting WAV encoding.
 export type BufferedAudioPacket = {
     chunks: Float32Array[];
     totalSamples: number;
 };
 
+// Converts normalized floating-point samples to signed 16-bit PCM values.
 function floatTo16BitPCM(
     view: DataView,
     offset: number,
@@ -25,6 +27,7 @@ function floatTo16BitPCM(
     return currentOffset;
 }
 
+// Writes the standard 44-byte header for a mono 16-bit PCM WAV file.
 function writeWavHeader(
     view: DataView,
     totalSamples: number,
@@ -36,6 +39,7 @@ function writeWavHeader(
     const blockAlign = channels * bytesPerSample;
     const byteRate = sampleRate * blockAlign;
 
+    // Chunk identifiers use byte order that preserves their ASCII representation.
     view.setUint32(0, 0x52494646, false); // "RIFF"
     view.setUint32(4, 36 + dataLength, true);
     view.setUint32(8, 0x57415645, false); // "WAVE"
@@ -46,11 +50,12 @@ function writeWavHeader(
     view.setUint32(24, sampleRate, true);
     view.setUint32(28, byteRate, true);
     view.setUint16(32, blockAlign, true);
-    view.setUint16(34, 16, true); // bits per sample
+    view.setUint16(34, 16, true); // Bits per sample
     view.setUint32(36, 0x64617461, false); // "data"
     view.setUint32(40, dataLength, true);
 }
 
+// Encodes the buffered audio chunks as a mono 16-bit PCM WAV buffer.
 export function buildWavBuffer(
     packet: BufferedAudioPacket,
     sampleRate: number

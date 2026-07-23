@@ -1,4 +1,4 @@
-// Current quiz topic being practiced, kept between questions.
+// Preserves the selected quiz topic between consecutive questions.
 let activeQuizTopic: string | null = null;
 
 window.Controller = {
@@ -65,16 +65,13 @@ window.Controller = {
       }
     });
 
-    // Restore any saved chat history for the current session, once.
+    // Restore saved messages after the chat panel is created.
     Controller.restoreChatHistory();
 
     return panel;
   },
 
-  /**
-   * Load saved chat exchanges from the background and render them. Runs once
-   * per panel creation; guards against double-rendering with a data flag.
-   */
+  // Restores saved exchanges once per panel to prevent duplicate messages.
   restoreChatHistory(): void {
     const messagesContainer = document.getElementById(
       "lecture-chat-messages"
@@ -84,7 +81,7 @@ window.Controller = {
       return;
     }
 
-    // Only restore once.
+    // The data flag prevents duplicate rendering during repeated panel access.
     if (messagesContainer.dataset.restored === "true") {
       return;
     }
@@ -103,7 +100,7 @@ window.Controller = {
         }
 
         for (const exchange of response.history) {
-          // Reuse addChatMessage, which inserts text via textContent (XSS-safe).
+          // Reuse the textContent-based renderer to keep restored content XSS-safe.
           Controller.addChatMessage(exchange.question, "user");
           Controller.addChatMessage(exchange.answer, "assistant");
         }
@@ -129,18 +126,15 @@ window.Controller = {
       return existingOverlay as HTMLDivElement;
     }
 
-    // The overlay covers the whole screen with a dark backdrop and centers the
-    // modal. The modal's static structure is set here; all model-generated text
-    // (topics, questions, options, explanations) is inserted later via
-    // textContent / createElement, never innerHTML, to keep the XSS-safe
-    // boundary.
+    // Only static markup is assigned with innerHTML; generated quiz content is
+    // inserted later through textContent and createElement to remain XSS-safe.
     const overlay = document.createElement("div");
     overlay.id = "lecture-quiz-overlay";
 
     overlay.innerHTML = `
       <div id="lecture-quiz-modal">
         <div id="lecture-quiz-header">
-          <span id="lecture-quiz-title">תרגול נושאי ההרצאה</span>
+          <span id="lecture-quiz-title">Practice Lecture Topics</span>
           <button id="lecture-quiz-close" title="Close quiz">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -160,17 +154,16 @@ window.Controller = {
       "lecture-quiz-close"
     ) as HTMLButtonElement;
 
-    // Close on the X button.
+    // Both the close button and backdrop dismiss the quiz.
     closeButton.addEventListener("click", () => {
       overlay.style.display = "none";
     });
 
-    // Close when clicking the dark backdrop...
     overlay.addEventListener("click", () => {
       overlay.style.display = "none";
     });
 
-    // ...but NOT when clicking inside the modal itself.
+    // Prevent clicks inside the modal from reaching the backdrop handler.
     modal.addEventListener("click", (event: MouseEvent) => {
       event.stopPropagation();
     });
@@ -184,7 +177,7 @@ window.Controller = {
     if (overlay.style.display === "none" || overlay.style.display === "") {
       overlay.style.display = "flex";
 
-      // Every time the quiz is opened, start fresh from topic selection.
+      // Reopening the quiz starts a new topic-selection flow.
       activeQuizTopic = null;
       Controller.loadQuizTopics();
 
@@ -194,9 +187,7 @@ window.Controller = {
     overlay.style.display = "none";
   },
 
-  /**
-   * Replace the quiz body with a single centered status message.
-   */
+  // Replaces the quiz content with a single status message.
   setQuizStatus(text: string): void {
     const body = document.getElementById("lecture-quiz-body");
 
@@ -213,30 +204,28 @@ window.Controller = {
     body.appendChild(status);
   },
 
-  /**
-   * Fetch the lecture's practice topics and render them as choices.
-   */
+  // Requests practice topics derived from the active lecture transcript.
   loadQuizTopics(): void {
-    Controller.setQuizStatus("טוען נושאים...");
+    Controller.setQuizStatus("Loading topics...");
 
     chrome.runtime.sendMessage(
       { type: "QUIZ_TOPICS" },
       (response: QuizTopicsResponse) => {
         if (chrome.runtime.lastError) {
-          Controller.setQuizStatus("שגיאת תקשורת, אנא נסה שוב.");
+          Controller.setQuizStatus("Connection error. Please try again.");
           return;
         }
 
         if (!response?.ok) {
           Controller.setQuizStatus(
-            response?.error || "שגיאה בטעינת הנושאים."
+            response?.error || "Error loading topics."
           );
           return;
         }
 
         if (!response.enoughContent || !response.topics?.length) {
           Controller.setQuizStatus(
-            "עדיין לא הצטבר מספיק תוכן מההרצאה כדי לתרגל. נסה שוב מאוחר יותר."
+            "There is not enough lecture content to practice yet. Please try again later."
           );
           return;
         }
@@ -246,10 +235,7 @@ window.Controller = {
     );
   },
 
-  /**
-   * Render the topic list. Topic text comes from the model, so it is inserted
-   * with textContent only.
-   */
+  // Renders model-generated topic text through textContent to remain XSS-safe.
   renderQuizTopics(topics: string[]): void {
     const body = document.getElementById("lecture-quiz-body");
 
@@ -261,7 +247,7 @@ window.Controller = {
 
     const heading = document.createElement("h3");
     heading.className = "lecture-quiz-heading";
-    heading.textContent = "בחר נושא לתרגול";
+    heading.textContent = "Choose a topic to practice";
     body.appendChild(heading);
 
     for (const topic of topics) {
@@ -278,30 +264,28 @@ window.Controller = {
     }
   },
 
-  /**
-   * Fetch one question about the chosen topic and render it.
-   */
+  // Requests and renders one question for the selected topic.
   loadQuizQuestion(topic: string): void {
-    Controller.setQuizStatus("מכין שאלה...");
+    Controller.setQuizStatus("Preparing question...");
 
     chrome.runtime.sendMessage(
       { type: "QUIZ_QUESTION", topic },
       (response: QuizQuestionResponse) => {
         if (chrome.runtime.lastError) {
-          Controller.setQuizStatus("שגיאת תקשורת, אנא נסה שוב.");
+          Controller.setQuizStatus("Connection error. Please try again.");
           return;
         }
 
         if (!response?.ok) {
           Controller.setQuizStatus(
-            response?.error || "שגיאה בהכנת השאלה."
+            response?.error || "Error preparing the question."
           );
           return;
         }
 
         if (!response.enoughContent || !response.options?.length) {
           Controller.setQuizStatus(
-            "לא ניתן להכין שאלה על הנושא הזה כרגע."
+            "A question cannot be prepared for this topic right now."
           );
           return;
         }
@@ -314,11 +298,8 @@ window.Controller = {
     );
   },
 
-  /**
-   * Render a question with its four options. All model text is inserted via
-   * textContent. The correct answer is already known locally, so checking the
-   * answer needs no further server round trip.
-   */
+  // Renders model-generated question content through textContent. Answer
+  // validation remains local because each option already includes correctness.
   renderQuizQuestion(question: string, options: QuizOption[]): void {
     const body = document.getElementById("lecture-quiz-body");
 
@@ -352,10 +333,8 @@ window.Controller = {
     });
   },
 
-  /**
-   * Mark the chosen answer, reveal the correct one, and show every
-   * explanation. Then offer another question or finishing up.
-   */
+  // Locks the options, reveals the result and explanations, and displays the
+  // available follow-up actions.
   revealQuizAnswer(
     optionButtons: HTMLButtonElement[],
     options: QuizOption[],
@@ -390,7 +369,7 @@ window.Controller = {
 
     const nextButton = document.createElement("button");
     nextButton.className = "lecture-quiz-btn-primary";
-    nextButton.textContent = "שאלה נוספת";
+    nextButton.textContent = "Another Question";
 
     nextButton.addEventListener("click", () => {
       if (activeQuizTopic) {
@@ -400,7 +379,7 @@ window.Controller = {
 
     const finishButton = document.createElement("button");
     finishButton.className = "lecture-quiz-btn-secondary";
-    finishButton.textContent = "סיום";
+    finishButton.textContent = "Finish";
 
     finishButton.addEventListener("click", () => {
       const overlay = document.getElementById("lecture-quiz-overlay");
@@ -478,7 +457,7 @@ window.Controller = {
         if (chrome.runtime.lastError) {
           if (loadingMessage) {
             loadingMessage.classList.remove("lecture-chat-loading-message");
-            loadingMessage.textContent = "שגיאת תקשורת, אנא נסה שוב.";
+            loadingMessage.textContent = "Connection error. Please try again.";
           }
 
           return;
@@ -488,21 +467,21 @@ window.Controller = {
           if (loadingMessage) {
             loadingMessage.classList.remove("lecture-chat-loading-message");
             loadingMessage.textContent =
-              response?.error || "שגיאה בקבלת תשובה מהשרת.";
+              response?.error || "Error receiving a response from the server.";
           }
 
           return;
         }
 
-        const answer = response.answer || "לא התקבלה תשובה מהשרת.";
+        const answer =
+          response.answer || "No response was received from the server.";
 
         if (loadingMessage) {
           loadingMessage.classList.remove("lecture-chat-loading-message");
           loadingMessage.textContent = answer;
         }
 
-        // Persist the completed exchange so it survives a tab refresh. Only
-        // real answers are saved (loading/error messages are not persisted).
+        // Persist only completed exchanges so chat history survives a refresh.
         if (response.answer) {
           chrome.runtime.sendMessage(
             {
@@ -511,7 +490,7 @@ window.Controller = {
               answer: response.answer,
             },
             () => {
-              // Best-effort; read lastError to avoid an unchecked warning.
+              // Read lastError to prevent an unchecked runtime warning.
               void chrome.runtime.lastError;
             }
           );
@@ -521,7 +500,7 @@ window.Controller = {
   },
 
   async textSummary(summaryButton: HTMLButtonElement): Promise<void> {
-    // Disable the button and show a loading indicator
+    // Prevent duplicate requests while the summary is being generated.
     summaryButton.disabled = true;
     summaryButton.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin fa-2x"></i>';
@@ -533,13 +512,12 @@ window.Controller = {
           type: "GENERATE_SUMMARY",
         },
         (response: SummaryResponse) => {
-          // Restore the summary button after processing
+          // Restore the button before handling the response result.
           summaryButton.disabled = false;
           summaryButton.innerHTML =
             '<i class="fa-solid fa-file-lines fa-2x"></i>';
           summaryButton.title = "Lecture Summary";
 
-          // Check for any runtime errors
           if (chrome.runtime.lastError) {
             alert("Connection error. Please try again.");
             return;
@@ -562,7 +540,7 @@ window.Controller = {
   },
 
   onClick(): void {
-    // Get the buttons by their IDs
+    // Bind each extension action to its corresponding control.
     const summaryButton = document.getElementById(
       "summary"
     ) as HTMLButtonElement;
@@ -573,7 +551,6 @@ window.Controller = {
 
     const quizButton = document.getElementById("quiz") as HTMLButtonElement;
 
-    // Add a click event to the buttons
     summaryButton.addEventListener("click", () =>
       Controller.textSummary(summaryButton)
     );

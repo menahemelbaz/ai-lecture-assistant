@@ -1,9 +1,8 @@
 "use strict";
-// Max time between user click and video event.
+// Defines how long a video event may follow a click and still be user-initiated.
 const CLICK_TO_VIDEO_EVENT = 2000;
-// Delay before confirming the video is paused.
+// Delays pause handling to ignore brief playback interruptions.
 const PAUSE_CONFIRMATION = 1000;
-// Track when the user last clicked.
 let lastClickTime = 0;
 const videosWithPlayListener = new WeakSet();
 const videosWithPauseListener = new WeakSet();
@@ -20,9 +19,7 @@ function didUserClickRecently() {
 function consumeLastClick() {
     lastClickTime = 0;
 }
-/**
- * Build the context used to identify the current lecture.
- */
+// Builds the metadata used to identify the current lecture session.
 function getLectureContext(video) {
     const duration = video.duration;
     return {
@@ -34,11 +31,8 @@ function getLectureContext(video) {
             : null,
     };
 }
-/**
- * Request recording for the current lecture.
- */
+// Requests recording while preventing duplicate requests for the same video.
 function requestRecordingStart(video, confirmNewSession = false) {
-    // Prevent simultaneous duplicate requests for the same video.
     if (videosWithPendingStartRequest.has(video)) {
         return;
     }
@@ -67,19 +61,13 @@ function requestRecordingStart(video, confirmNewSession = false) {
             }
             return;
         }
-        // Recording could not start for some other reason. Reset the flag so a
-        // later user-initiated play can try again. No user-facing warning here:
-        // in the new activation flow the common failure cases are handled
-        // elsewhere.
+        // Reset the state so a later user-initiated playback can retry.
         if (!response?.ok) {
             videosStartedAfterUserClick.delete(video);
         }
     });
 }
-/**
- * Start recording immediately if capture was armed while the video
- * was already playing.
- */
+// Starts recording when capture is armed while the video is already playing.
 function startRecordingIfVideoIsAlreadyPlaying() {
     const video = document.querySelector("video");
     if (!video || video.paused || video.ended) {
@@ -92,23 +80,20 @@ function startRecordingIfVideoIsAlreadyPlaying() {
     requestRecordingStart(video);
     return true;
 }
-// Track user clicks on the page.
-// If a video event happens shortly after a click, treat it as user-initiated.
+// Track page clicks so nearby video events can be identified as user actions.
 document.addEventListener("click", markUserClick, true);
-// Receive notifications from the background about activation / deactivation.
+// Handles extension activation and deactivation messages from the background.
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    // Activation: the user clicked the extension icon.
     if (message.type === "CAPTURE_ARMED") {
-        // Only activate the UI if a video is actually present on the page.
+        // Avoid activating the extension UI when the page has no video.
         if (!ContentUI.hasVideo()) {
-            window.alert("לא זוהה וידאו בעמוד.");
+            window.alert("No video was detected on this page.");
             sendResponse({
                 ok: false,
                 error: "No video on page",
             });
             return true;
         }
-        // Video present: show the buttons and, if it is already playing, begin.
         ContentUI.showExtensionButtons();
         const recordingRequested = startRecordingIfVideoIsAlreadyPlaying();
         sendResponse({
@@ -119,7 +104,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         });
         return true;
     }
-    // Deactivation: the user clicked the icon again to turn the extension off.
     if (message.type === "CAPTURE_DISARMED") {
         ContentUI.hideExtensionButtons();
         sendResponse({
@@ -132,27 +116,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 window.Manager = {
     async setupExtension() {
-        // Create all extension buttons.
         Buttons.createButtons();
-        // Attach click handlers to the extension buttons.
         Controller.onClick();
     },
-    /**
-     * Mark a video as user-started without sending a new recording request.
-     * Used after a refresh when the video is already playing and capture is
-     * already running in the background - so the pause listener will correctly
-     * stop recording when the user later pauses.
-     */
+    // Marks restored playback as user-started without sending another start request.
     markVideoAsUserStarted(video) {
         videosStartedAfterUserClick.add(video);
     },
     startRecordingOnPlay(video) {
-        // Prevent duplicate playing listeners on the same video.
+        // Prevent multiple playing listeners from being attached to the same video.
         if (videosWithPlayListener.has(video)) {
             return;
         }
         videosWithPlayListener.add(video);
-        // Start recording only after a user-initiated video play.
+        // Start recording only after playback initiated by a recent user action.
         video.addEventListener("playing", () => {
             const wasAlreadyStartedByUser = videosStartedAfterUserClick.has(video);
             if (!wasAlreadyStartedByUser) {
@@ -168,7 +145,7 @@ window.Manager = {
         });
     },
     stopRecordingOnPause(video) {
-        // Prevent duplicate pause listeners on the same video.
+        // Prevent multiple pause listeners from being attached to the same video.
         if (videosWithPauseListener.has(video)) {
             return;
         }
@@ -188,6 +165,7 @@ window.Manager = {
             if (existingTimeoutId !== undefined) {
                 window.clearTimeout(existingTimeoutId);
             }
+            // Confirm that playback remains paused before stopping the recording.
             const timeoutId = window.setTimeout(() => {
                 if (!video.paused) {
                     console.log("Video resumed quickly. Ignoring pause event.");

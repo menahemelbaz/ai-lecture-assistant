@@ -5,11 +5,10 @@ import {
 
 const SERVER_STREAM_URL = "http://localhost:3000/stream";
 
+// Serializes uploads to preserve the original order of the audio packets.
 let uploadQueue: Promise<void> = Promise.resolve();
 
-/**
- * Upload one audio packet to the local transcription server.
- */
+// Converts and uploads a buffered audio packet to the transcription server.
 async function uploadAudioPacket(
     packet: BufferedAudioPacket,
     sampleRate: number
@@ -31,9 +30,7 @@ async function uploadAudioPacket(
     }
 }
 
-/**
- * Queue audio uploads so chunks are sent one after another.
- */
+// Queues audio packets so they are uploaded sequentially and remain ordered.
 function queueUpload(packet: BufferedAudioPacket, sampleRate: number): void {
     uploadQueue = uploadQueue
         .then(() => uploadAudioPacket(packet, sampleRate))
@@ -42,9 +39,7 @@ function queueUpload(packet: BufferedAudioPacket, sampleRate: number): void {
         });
 }
 
-/**
- * Wait until all queued uploads finish.
- */
+// Waits for all currently queued uploads to complete.
 async function waitForPendingUploads(): Promise<void> {
     await uploadQueue;
 }

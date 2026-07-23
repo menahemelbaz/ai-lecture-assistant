@@ -1,6 +1,4 @@
-/**
- * Send a lecture question and transcript to the server.
- */
+// Sends a lecture question and transcript to the server.
 async function askLecture(
   question: string,
   transcript: string
@@ -36,13 +34,13 @@ async function askLecture(
     if (!data.success) {
       return {
         ok: false,
-        error: data.error || "שגיאה בקבלת תשובה מהשרת.",
+        error: data.error || "Error receiving a response from the server.",
       };
     }
 
     return {
       ok: true,
-      answer: data.answer || "לא התקבלה תשובה מהשרת.",
+      answer: data.answer || "No response was received from the server.",
     };
   } catch (err) {
     clearTimeout(timeoutId);
@@ -53,20 +51,20 @@ async function askLecture(
     if (error.name === "TypeError" && error.message.includes("fetch")) {
       return {
         ok: false,
-        error: "השרת לא פועל. אנא הפעל את השרת תחילה.",
+        error: "The server is not running. Please start the server first.",
       };
     }
 
     if (error.name === "AbortError") {
       return {
         ok: false,
-        error: "הבקשה ארכה זמן רב מדי. נסה שוב.",
+        error: "The request took too long. Please try again.",
       };
     }
 
     return {
       ok: false,
-      error: error.message || "שגיאה בקבלת תשובה מהשרת.",
+      error: error.message || "Error receiving a response from the server.",
     };
   }
 }

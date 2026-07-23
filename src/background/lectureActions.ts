@@ -2,9 +2,7 @@ import { TranscriptStore } from "./transcriptStore.js";
 import { AskLectureClient } from "./askLectureClient.js";
 import { SummaryClient } from "./summaryClient.js";
 
-/**
- * Handle a lecture question request from the content script.
- */
+// Handles a lecture question request from the content script.
 async function handleAskLecture(
   msg: ExtensionMessage,
   sender: chrome.runtime.MessageSender
@@ -16,7 +14,7 @@ async function handleAskLecture(
   if (!question) {
     return {
       ok: false,
-      error: "לא התקבלה שאלה תקינה.",
+      error: "No valid question was received.",
     };
   }
 
@@ -33,9 +31,7 @@ async function handleAskLecture(
   return await AskLectureClient.askLecture(question, fullTranscript);
 }
 
-/**
- * Handle a lecture summary request from the content script.
- */
+// Handles a lecture summary request for the active transcript session.
 async function handleGenerateSummary(
   sender: chrome.runtime.MessageSender
 ): Promise<SummaryResponse> {
@@ -54,7 +50,8 @@ async function handleGenerateSummary(
   if (!fullTranscript) {
     return {
       ok: false,
-      error: "אין תמלול זמין לסיכום, אנא הפעל הקלטה תחילה",
+      error:
+        "No transcript is available for summarization. Please start recording first.",
     };
   }
 

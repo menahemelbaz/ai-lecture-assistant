@@ -1,11 +1,27 @@
 "use strict";
 window.Buttons = {
     addIconsLink() {
-        const icons = document.createElement("link");
-        icons.rel = "stylesheet";
-        icons.href =
-            "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css";
-        document.head.appendChild(icons);
+        // Loads each external UI stylesheet once to prevent duplicate link elements.
+        const stylesheets = [
+            {
+                id: "lecture-assistant-icons",
+                href: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css",
+            },
+            {
+                id: "lecture-assistant-font",
+                href: "https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap",
+            },
+        ];
+        for (const sheet of stylesheets) {
+            if (document.getElementById(sheet.id)) {
+                continue;
+            }
+            const link = document.createElement("link");
+            link.id = sheet.id;
+            link.rel = "stylesheet";
+            link.href = sheet.href;
+            document.head.appendChild(link);
+        }
     },
     createButton(iconClass, iconSize, className, id = "", title = "") {
         const button = document.createElement("button");
@@ -28,31 +44,21 @@ window.Buttons = {
     },
     createButtons() {
         Buttons.addIconsLink();
-        // Create a container element
+        // Groups the secondary actions so the overlay can reveal them together.
         const container = document.createElement("div");
-        // Set the container's ID
         container.id = "secondary-buttons";
-        // Create the summary button
         const summaryButton = Buttons.createButton("fa-solid fa-file-lines", "3x", "buttons", "summary", "Summarize Lecture");
-        // Create the ask button
         const askButton = Buttons.createButton("fa-solid fa-comment", "3x", "buttons", "questions", "Ask about the lecture");
-        // Create the quiz button
         const quizButton = Buttons.createButton("fa-solid fa-list-check", "3x", "buttons", "quiz", "Practice Lecture Topics");
-        // Add all buttons to the container
         container.appendChild(summaryButton);
         container.appendChild(askButton);
         container.appendChild(quizButton);
-        // Create a wrapper element
+        // The wrapper combines the main trigger and secondary actions for hover behavior.
         const wrapper = document.createElement("div");
-        // Set the wrapper's ID
         wrapper.id = "wrapper-main-button";
-        // Create the main extension button
         const mainButton = Buttons.createMainButton();
-        // Add the main button to the wrapper
         wrapper.appendChild(mainButton);
-        // Add the container to the wrapper
         wrapper.appendChild(container);
-        // Insert the wrapper into the page
         document.body.appendChild(wrapper);
     },
 };

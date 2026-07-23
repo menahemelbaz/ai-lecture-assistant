@@ -4,9 +4,8 @@ import { AskLectureClient } from "./background/askLectureClient.js";
 import { QuizClient } from "./background/quizClient.js";
 import { RecordingController } from "./background/recordingController.js";
 
-// Load the transcript state first, then reconcile the recording state with the
-// live offscreen document. Ordering matters: transcript state must be ready
-// before the WebSocket may start appending chunks again.
+// Restore the transcript before capture resumes so incoming WebSocket chunks
+// are appended only after the persisted state is available.
 TranscriptStore.loadTranscriptState()
   .then(() => RecordingController.restoreCaptureState())
   .catch((err) => {
@@ -21,8 +20,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
-  // Second click on an active tab: turn the extension off. Stop recording and
-  // tell the content script to remove its buttons UI.
+  // A second click on the active tab disables capture and removes its UI.
   if (await RecordingController.isActiveRecordingTab(tabId)) {
     const stopResponse = await RecordingController.endRecording();
 
@@ -52,9 +50,8 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
-  // First click: arm capture, then ask the content script to show its UI.
-  const startResponse =
-    await RecordingController.beginRecordingForTab(tabId);
+  // A first click arms capture before requesting the content-script UI.
+  const startResponse = await RecordingController.beginRecordingForTab(tabId);
 
   if (!startResponse.ok) {
     console.error(
@@ -64,11 +61,8 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
 
-  // Notify the content script that capture is armed. The content script decides
-  // whether a video is present: if it is, it shows the buttons (and starts
-  // recording if the video is already playing). If not, it reports back so we
-  // can undo the arming we just did, rather than leaving an idle offscreen
-  // document and open socket behind.
+  // The content script owns video detection and UI setup. Roll back capture
+  // when the page has no video or the content script cannot be reached.
   try {
     const armResponse = await chrome.tabs.sendMessage(tabId, {
       type: "CAPTURE_ARMED",
@@ -80,8 +74,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       armResponse.error === "No video on page";
 
     if (noVideo) {
-      // No video to record: roll back the arming so we don't leave resources
-      // (offscreen document, WebSocket) open for nothing.
+      // Avoid retaining offscreen and WebSocket resources without a video.
       await RecordingController.endRecording();
     }
   } catch (error) {
@@ -95,15 +88,14 @@ chrome.action.onClicked.addListener(async (tab) => {
       message
     );
 
-    // The content script isn't reachable (e.g. no content script on this page).
-    // Roll back so we don't leak an armed-but-unusable capture.
+    // Prevent an armed capture session from remaining unusable in the background.
     await RecordingController.endRecording();
   }
 });
 
 /**
- * Resolve the active transcript for a requesting tab, or null if this tab is
- * not the active session tab.
+ * Returns the active transcript for the requesting tab, or null when the tab
+ * does not own the current session.
  */
 async function getTranscriptForTab(
   requesterTabId: number | undefined
@@ -117,7 +109,7 @@ async function getTranscriptForTab(
   return await TranscriptStore.getFullTranscript();
 }
 
-// Central message router invoked by the content scripts injected into tabs.
+// Routes messages received from content scripts.
 chrome.runtime.onMessage.addListener(
   (
     msg: ExtensionMessage,
@@ -138,9 +130,7 @@ chrome.runtime.onMessage.addListener(
     }
 
     (async () => {
-      // A content script that just loaded (e.g. after a tab refresh) asks
-      // whether this tab is still active, so it can restore its buttons UI
-      // without waiting for another icon click.
+      // Restore the UI after navigation when this tab still owns the session.
       if (msg && msg.type === "IS_TAB_ACTIVE") {
         const tabId = sender.tab?.id;
 
@@ -191,31 +181,24 @@ chrome.runtime.onMessage.addListener(
         if (!question) {
           return {
             ok: false,
-            error: "לא התקבלה שאלה תקינה.",
+            error: "No valid question was received.",
           };
         }
 
         let fullTranscript = "";
 
-        if (
-          requesterTabId !== undefined &&
-          requesterTabId === activeTabId
-        ) {
-          fullTranscript =
-            await TranscriptStore.getFullTranscript();
+        if (requesterTabId !== undefined && requesterTabId === activeTabId) {
+          fullTranscript = await TranscriptStore.getFullTranscript();
         } else {
           console.warn(
             "ASK_LECTURE was sent without an active transcript session for this tab."
           );
         }
 
-        return await AskLectureClient.askLecture(
-          question,
-          fullTranscript
-        );
+        return await AskLectureClient.askLecture(question, fullTranscript);
       }
 
-      // Save a completed question/answer exchange for this tab's session.
+      // Persist completed exchanges only for the tab that owns the session.
       if (msg && msg.type === "SAVE_CHAT_MESSAGE") {
         const requesterTabId = sender.tab?.id;
         const activeTabId = TranscriptStore.getActiveTabId();
@@ -239,7 +222,7 @@ chrome.runtime.onMessage.addListener(
         return { ok: true };
       }
 
-      // Return the saved chat history for this tab's session.
+      // Expose history only to the tab associated with the active session.
       if (msg && msg.type === "GET_CHAT_HISTORY") {
         const requesterTabId = sender.tab?.id;
         const activeTabId = TranscriptStore.getActiveTabId();
@@ -254,7 +237,7 @@ chrome.runtime.onMessage.addListener(
         return { ok: true, history: TranscriptStore.getChatHistory() };
       }
 
-      // Map the lecture transcript into practice topics.
+      // Derive practice topics from the active lecture transcript.
       if (msg && msg.type === "QUIZ_TOPICS") {
         const transcript = await getTranscriptForTab(sender.tab?.id);
 
@@ -265,7 +248,7 @@ chrome.runtime.onMessage.addListener(
         return await QuizClient.fetchTopics(transcript);
       }
 
-      // Generate one quiz question about a chosen topic.
+      // Generate a single question for the selected topic.
       if (msg && msg.type === "QUIZ_QUESTION") {
         const transcript = await getTranscriptForTab(sender.tab?.id);
 
@@ -296,20 +279,17 @@ chrome.runtime.onMessage.addListener(
           };
         }
 
-        const fullTranscript =
-          await TranscriptStore.getFullTranscript();
+        const fullTranscript = await TranscriptStore.getFullTranscript();
 
         if (!fullTranscript) {
           return {
             ok: false,
             error:
-              "אין תמלול זמין לסיכום, אנא הפעל הקלטה תחילה",
+              "No transcript is available for summarization. Please start recording first.",
           };
         }
 
-        return await SummaryClient.generateSummaryPdf(
-          fullTranscript
-        );
+        return await SummaryClient.generateSummaryPdf(fullTranscript);
       }
 
       return {

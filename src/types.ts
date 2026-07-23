@@ -1,4 +1,4 @@
-// Shared type definitions for the Audio Script extension
+// Shared type definitions used throughout the Audio Script extension.
 
 type ExtensionMessageType =
   | "CAPTURE_ARMED"
@@ -17,10 +17,11 @@ type ExtensionMessageType =
   | "RESUME_TAB_CAPTURE_INTERNAL"
   | "STOP_TAB_CAPTURE_INTERNAL";
 
-// Recording lifecycle state, persisted so it survives service worker restarts.
+// Capture state is persisted to survive service worker restarts.
 type CaptureMode = "tab";
 type CaptureStatus = "armed" | "recording" | "paused";
 
+// Metadata identifying the lecture and its video source.
 interface LectureContext {
   pageUrl: string;
   pageTitle: string;
@@ -28,6 +29,7 @@ interface LectureContext {
   videoDuration: number | null;
 }
 
+// Represents an active lecture recording session.
 interface LectureSession {
   id: string;
   tabId: number;
@@ -35,19 +37,20 @@ interface LectureSession {
   startedAt: number;
 }
 
-// A completed question/answer pair in the lecture chat.
+// Represents a completed question-and-answer exchange in the lecture chat.
 interface ChatExchange {
   question: string;
   answer: string;
 }
 
-// One answer option in a quiz question.
+// Represents one possible answer in a quiz question.
 interface QuizOption {
   text: string;
   isCorrect: boolean;
   explanation: string;
 }
 
+// Message payload shared between extension contexts.
 interface ExtensionMessage {
   type: ExtensionMessageType;
   target?: "offscreen";
@@ -59,6 +62,7 @@ interface ExtensionMessage {
   confirmNewSession?: boolean;
 }
 
+// Response returned by recording lifecycle operations.
 interface RecordingResponse {
   ok: boolean;
   info?: string;
@@ -67,31 +71,34 @@ interface RecordingResponse {
   active?: boolean;
 }
 
+// Response returned after requesting a lecture summary.
 interface SummaryResponse {
   ok: boolean;
   info?: string;
   error?: string;
 }
 
+// Response returned by internal offscreen capture operations.
 interface InternalCaptureResponse {
   ok: boolean;
   error?: string;
 }
 
+// Response returned after asking a question about the lecture.
 interface AskLectureResponse {
   ok: boolean;
   answer?: string;
   error?: string;
 }
 
-// Response carrying the saved chat history back to the content script.
+// Response containing the saved chat history for the active session.
 interface ChatHistoryResponse {
   ok: boolean;
   history?: ChatExchange[];
   error?: string;
 }
 
-// Quiz topics response.
+// Response containing practice topics derived from the lecture.
 interface QuizTopicsResponse {
   ok: boolean;
   enoughContent?: boolean;
@@ -99,7 +106,7 @@ interface QuizTopicsResponse {
   error?: string;
 }
 
-// Quiz question response.
+// Response containing a generated quiz question and its answer options.
 interface QuizQuestionResponse {
   ok: boolean;
   enoughContent?: boolean;
@@ -108,6 +115,7 @@ interface QuizQuestionResponse {
   error?: string;
 }
 
+// Persisted snapshot of the current tab-capture state.
 interface CaptureRecord {
   mode: CaptureMode;
   status: CaptureStatus;

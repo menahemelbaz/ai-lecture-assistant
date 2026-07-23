@@ -1,14 +1,12 @@
 const TRANSCRIPT_STORAGE_KEY = "transcriptChunks";
 const CURRENT_SESSION_STORAGE_KEY = "currentLectureSession";
 const CHAT_HISTORY_STORAGE_KEY = "lectureChatHistory";
-// Used to migrate transcript data saved before session support was added.
+// Supports transcript data stored before lecture sessions were introduced.
 const LEGACY_ACTIVE_TAB_STORAGE_KEY = "activeTranscriptTabId";
 let transcriptChunks = [];
 let currentSession = null;
 let chatHistory = [];
-/**
- * Check whether a stored value is a valid lecture context.
- */
+// Verifies that a value loaded from storage is a valid lecture context.
 function isLectureContext(value) {
     if (!value || typeof value !== "object") {
         return false;
@@ -20,9 +18,7 @@ function isLectureContext(value) {
         (typeof context.videoDuration === "number" ||
             context.videoDuration === null));
 }
-/**
- * Check whether a stored value is a valid lecture session.
- */
+// Verifies that a value loaded from storage is a valid lecture session.
 function isLectureSession(value) {
     if (!value || typeof value !== "object") {
         return false;
@@ -33,9 +29,7 @@ function isLectureSession(value) {
         typeof session.startedAt === "number" &&
         isLectureContext(session.context));
 }
-/**
- * Check whether a stored value is a valid chat exchange.
- */
+// Verifies that a value loaded from storage is a valid chat exchange.
 function isChatExchange(value) {
     if (!value || typeof value !== "object") {
         return false;
@@ -44,9 +38,7 @@ function isChatExchange(value) {
     return (typeof exchange.question === "string" &&
         typeof exchange.answer === "string");
 }
-/**
- * Load the saved transcript state from local storage.
- */
+// Restores the transcript, lecture session, and chat history from local storage.
 async function loadTranscriptState() {
     try {
         const result = await chrome.storage.local.get([
@@ -69,7 +61,7 @@ async function loadTranscriptState() {
             currentSession = storedSession;
             return;
         }
-        // Preserve transcripts created before lecture sessions were introduced.
+        // Migrate legacy transcript data into the current session structure.
         if (transcriptChunks.length > 0 &&
             typeof legacyActiveTabId === "number") {
             currentSession = {
@@ -95,9 +87,7 @@ async function loadTranscriptState() {
         chatHistory = [];
     }
 }
-/**
- * Save the current transcript state to local storage.
- */
+// Persists the current transcript, lecture session, and chat history.
 async function saveTranscriptState() {
     try {
         await chrome.storage.local.set({
@@ -111,27 +101,19 @@ async function saveTranscriptState() {
         console.error("Error saving transcript state:", err);
     }
 }
-/**
- * Clear the current transcript without removing the active session.
- */
+// Clears the transcript while preserving the current lecture session.
 async function clearTranscript() {
     transcriptChunks = [];
     await saveTranscriptState();
 }
-/**
- * Clear the transcript, the active session, AND the chat history entirely.
- * Used when the extension is turned off, returning to a clean state so a later
- * activation does not see a stale session or old chat from a previous lecture.
- */
+// Clears all lecture data so the next activation starts with a clean session.
 async function clearSession() {
     transcriptChunks = [];
     currentSession = null;
     chatHistory = [];
     await saveTranscriptState();
 }
-/**
- * Start a new lecture session and clear the previous transcript and chat.
- */
+// Creates a new lecture session and resets its transcript and chat history.
 async function startNewTranscriptSession(tabId, context) {
     currentSession = {
         id: crypto.randomUUID(),
@@ -143,14 +125,7 @@ async function startNewTranscriptSession(tabId, context) {
     chatHistory = [];
     await saveTranscriptState();
 }
-/**
- * Add a transcript chunk to the active lecture session.
- *
- * The expectedSessionId guards against a race during lecture switches: a chunk
- * from the previous lecture can arrive (or finish awaiting) after a new session
- * has already replaced the current one. We re-check the session id after the
- * async write and drop the chunk if it no longer belongs to the active session.
- */
+// Appends transcript text only when it belongs to the active lecture session.
 async function appendTranscript(text, expectedSessionId) {
     const trimmedText = text.trim();
     if (!trimmedText) {
@@ -160,6 +135,7 @@ async function appendTranscript(text, expectedSessionId) {
         console.warn("Ignoring transcript chunk because no lecture session is active.");
         return;
     }
+    // Reject chunks created for a lecture session that is no longer active.
     if (expectedSessionId !== undefined &&
         expectedSessionId !== currentSession.id) {
         console.warn("Dropping transcript chunk from a session that is no longer active.");
@@ -168,11 +144,7 @@ async function appendTranscript(text, expectedSessionId) {
     transcriptChunks.push(trimmedText);
     await saveTranscriptState();
 }
-/**
- * Save a completed question/answer exchange to the chat history.
- * Only stored when there is an active session, so chat is tied to a lecture and
- * is cleared together with it.
- */
+// Stores a completed chat exchange only when a lecture session is active.
 async function appendChatExchange(question, answer) {
     const trimmedQuestion = question.trim();
     const trimmedAnswer = answer.trim();
@@ -188,48 +160,29 @@ async function appendChatExchange(question, answer) {
     });
     await saveTranscriptState();
 }
-/**
- * Return the saved chat history for the current session.
- */
 function getChatHistory() {
     return chatHistory;
 }
-/**
- * Return the full transcript as a single string.
- */
+// Loads persisted chunks when necessary and combines them into one transcript.
 async function getFullTranscript() {
     if (transcriptChunks.length === 0) {
         await loadTranscriptState();
     }
     return transcriptChunks.join(" ").trim();
 }
-/**
- * Return whether the current session contains transcript text.
- */
 function hasTranscript() {
     return transcriptChunks.length > 0;
 }
-/**
- * Return the current lecture session.
- */
 function getCurrentSession() {
     return currentSession;
 }
-/**
- * Return the id of the current lecture session, if any.
- */
 function getCurrentSessionId() {
     return currentSession?.id ?? null;
 }
-/**
- * Return the tab associated with the current lecture session.
- */
 function getActiveTabId() {
     return currentSession?.tabId ?? null;
 }
-/**
- * Check whether two contexts appear to represent the same lecture.
- */
+// Compares available lecture metadata while tolerating a small duration difference.
 function isSameLectureContext(current, next) {
     const bothPageUrlsAvailable = current.pageUrl.length > 0 && next.pageUrl.length > 0;
     if (bothPageUrlsAvailable && current.pageUrl !== next.pageUrl) {

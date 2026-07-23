@@ -1,8 +1,6 @@
 const CAPTURE_STATE_STORAGE_KEY = "activeCaptureState";
 
-/**
- * Validate that a stored value is a well-formed capture record.
- */
+// Verifies that a value loaded from storage is a valid capture record.
 function isCaptureRecord(value: unknown): value is CaptureRecord {
     if (!value || typeof value !== "object") {
         return false;
@@ -20,10 +18,7 @@ function isCaptureRecord(value: unknown): value is CaptureRecord {
     );
 }
 
-/**
- * Read the persisted capture record. Storage is the single source of truth,
- * so this is safe to call after the service worker has been restarted.
- */
+// Reads the persisted state used to restore capture after a service worker restart.
 async function getCaptureState(): Promise<CaptureRecord | null> {
     try {
         const result = await chrome.storage.local.get(CAPTURE_STATE_STORAGE_KEY);
@@ -36,10 +31,10 @@ async function getCaptureState(): Promise<CaptureRecord | null> {
     }
 }
 
-/**
- * Persist a capture record, or clear it entirely when passed null.
- */
-async function setCaptureState(record: CaptureRecord | null): Promise<void> {
+// Persists a capture record or removes the stored state when passed null.
+async function setCaptureState(
+    record: CaptureRecord | null
+): Promise<void> {
     try {
         if (record === null) {
             await chrome.storage.local.remove(CAPTURE_STATE_STORAGE_KEY);
@@ -54,9 +49,7 @@ async function setCaptureState(record: CaptureRecord | null): Promise<void> {
     }
 }
 
-/**
- * Update only the status of the existing capture record.
- */
+// Updates the status and timestamp of the currently stored capture record.
 async function updateCaptureStatus(status: CaptureStatus): Promise<void> {
     const current = await getCaptureState();
 
@@ -71,9 +64,7 @@ async function updateCaptureStatus(status: CaptureStatus): Promise<void> {
     });
 }
 
-/**
- * Remove the capture record. Called when recording stops or is reconciled away.
- */
+// Removes the persisted capture state after recording ends.
 async function clearCaptureState(): Promise<void> {
     await setCaptureState(null);
 }

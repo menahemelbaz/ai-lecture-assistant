@@ -1,6 +1,4 @@
-/**
- * Start a PDF download from a regular HTTP URL.
- */
+// Starts a PDF download from a standard HTTP URL.
 function downloadPdfFromUrl(
   downloadUrl: string,
   filename: string
@@ -29,9 +27,7 @@ function downloadPdfFromUrl(
   });
 }
 
-/**
- * Send the full transcript to the server and download the generated summary PDF.
- */
+// Sends the transcript to the server and downloads the generated summary PDF.
 async function generateSummaryPdf(
   fullTranscript: string
 ): Promise<SummaryResponse> {
@@ -65,7 +61,7 @@ async function generateSummaryPdf(
     if (data.success && data.downloadUrl) {
       await downloadPdfFromUrl(
         data.downloadUrl,
-        data.filename || "סיכום הרצאה.pdf"
+        data.filename || "Lecture Summary.pdf"
       );
 
       return {
@@ -84,20 +80,20 @@ async function generateSummaryPdf(
     if (error.name === "TypeError" && error.message.includes("fetch")) {
       return {
         ok: false,
-        error: "השרת לא פועל. אנא הפעל את השרת תחילה.",
+        error: "The server is not running. Please start the server first.",
       };
     }
 
     if (error.name === "AbortError") {
       return {
         ok: false,
-        error: "הבקשה ארכה זמן רב מדי. נסה שוב.",
+        error: "The request took too long. Please try again.",
       };
     }
 
     return {
       ok: false,
-      error: error.message || "שגיאה ביצירת הסיכום",
+      error: error.message || "Error generating the summary.",
     };
   }
 }

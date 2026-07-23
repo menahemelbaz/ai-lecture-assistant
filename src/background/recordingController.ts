@@ -3,17 +3,13 @@ import { CaptureStore } from "./captureStore.js";
 import { connectWebSocket, disconnectWebSocket } from "./websocketClient.js";
 import { TabCaptureController } from "./tabCaptureController.js";
 
-// Serialize recording state changes so pause, resume, and stop operations
-// cannot run at the same time.
+// Serializes recording state changes so pause, resume, and stop cannot overlap.
 let recordingOperationQueue: Promise<void> = Promise.resolve();
 
 function runRecordingOperation<T>(
   operation: () => Promise<T>
 ): Promise<T> {
-  const result = recordingOperationQueue.then(
-    operation,
-    operation
-  );
+  const result = recordingOperationQueue.then(operation, operation);
 
   recordingOperationQueue = result.then(
     () => undefined,
@@ -23,41 +19,23 @@ function runRecordingOperation<T>(
   return result;
 }
 
-/**
- * Connect to the transcription WebSocket and store incoming transcript chunks.
- * Each chunk is tagged with the session that was active when the socket opened,
- * so chunks that outlive a lecture switch are dropped instead of leaking into
- * the next lecture.
- */
+// Stores incoming transcript chunks under the currently active lecture session.
 function connectTranscriptWebSocket(): void {
   connectWebSocket(async (text) => {
     const sessionId = TranscriptStore.getCurrentSessionId() ?? undefined;
+
     await TranscriptStore.appendTranscript(text, sessionId);
   });
 }
 
-/**
- * Return whether an active capture belongs to the given tab.
- * Reads the persisted capture record, so it stays correct even after the
- * service worker has been restarted.
- */
-async function isActiveRecordingTab(
-  tabId: number
-): Promise<boolean> {
+// Checks the persisted capture state so the result survives worker restarts.
+async function isActiveRecordingTab(tabId: number): Promise<boolean> {
   const capture = await CaptureStore.getCaptureState();
 
   return capture !== null && capture.tabId === tabId;
 }
 
-/**
- * Reconcile the persisted capture record with reality on worker startup.
- *
- * In Manifest V3 the service worker can be terminated at any time. When it
- * wakes, the persisted record is the source of truth - but the offscreen
- * document that performs the actual capture may or may not still be alive.
- * This aligns the two and re-opens the transcript socket when a recording is
- * genuinely still in progress.
- */
+// Reconciles the persisted capture state with the offscreen document on startup.
 async function restoreCaptureState(): Promise<void> {
   const capture = await CaptureStore.getCaptureState();
 
@@ -68,29 +46,23 @@ async function restoreCaptureState(): Promise<void> {
   const offscreenAlive =
     await TabCaptureController.hasOffscreenDocument();
 
-  // The offscreen document is gone, so no capture can be running.
-  // Clear the stale record so the UI and controller agree again.
+  // Remove stale state when the offscreen capture document no longer exists.
   if (!offscreenAlive) {
     await CaptureStore.clearCaptureState();
     return;
   }
 
-  // A recording was in progress when the worker slept. Re-open the socket so
-  // incoming transcript chunks are stored again.
+  // Reconnect the transcript socket when recording survived the worker restart.
   if (capture.status === "recording") {
     connectTranscriptWebSocket();
   }
 }
 
-/**
- * Arm tab capture for a specific tab.
- * Recording will start only when the video starts playing.
- */
+// Arms tab capture while leaving audio recording paused until video playback.
 async function beginRecordingForTab(
   tabId: number
 ): Promise<RecordingResponse> {
-  const existingCapture =
-    await CaptureStore.getCaptureState();
+  const existingCapture = await CaptureStore.getCaptureState();
 
   if (existingCapture !== null) {
     if (existingCapture.tabId === tabId) {
@@ -118,9 +90,7 @@ async function beginRecordingForTab(
       updatedAt: Date.now(),
     });
 
-    console.log(
-      "Tab capture armed and waiting for video play"
-    );
+    console.log("Tab capture armed and waiting for video play");
 
     return {
       ok: true,
@@ -144,9 +114,7 @@ async function beginRecordingForTab(
   }
 }
 
-/**
- * Resume audio recording for the armed tab.
- */
+// Resumes audio capture for the armed tab and manages lecture-session changes.
 function resumeRecordingForTab(
   tabId: number,
   lectureContext: LectureContext,
@@ -155,8 +123,7 @@ function resumeRecordingForTab(
   return runRecordingOperation(async () => {
     const capture = await CaptureStore.getCaptureState();
 
-    // With the new activation flow this should not normally happen (no buttons
-    // and no arming without an icon click), so this is just a safety guard.
+    // Guard against recording requests from tabs where the extension is inactive.
     if (capture === null || capture.tabId !== tabId) {
       return {
         ok: false,
@@ -164,8 +131,7 @@ function resumeRecordingForTab(
       };
     }
 
-    const currentSession =
-      TranscriptStore.getCurrentSession();
+    const currentSession = TranscriptStore.getCurrentSession();
 
     const isCurrentLecture =
       currentSession !== null &&
@@ -181,10 +147,7 @@ function resumeRecordingForTab(
         lectureContext
       );
     } else if (!isCurrentLecture) {
-      if (
-        TranscriptStore.hasTranscript() &&
-        !confirmNewSession
-      ) {
+      if (TranscriptStore.hasTranscript() && !confirmNewSession) {
         return {
           ok: false,
           requiresSessionConfirmation: true,
@@ -193,9 +156,7 @@ function resumeRecordingForTab(
         };
       }
 
-      // Switching lectures. Tear down the socket first so any in-flight chunk
-      // from the previous lecture lands on a closed connection and is dropped,
-      // then start the new session, then reconnect for the new lecture.
+      // Disconnect before switching sessions so previous lecture chunks are dropped.
       disconnectWebSocket();
 
       await TranscriptStore.startNewTranscriptSession(
@@ -238,9 +199,7 @@ function resumeRecordingForTab(
   });
 }
 
-/**
- * Pause the active tab capture session.
- */
+// Pauses the active capture after all earlier recording operations complete.
 function pauseRecording(): Promise<RecordingResponse> {
   return runRecordingOperation(async () => {
     const capture = await CaptureStore.getCaptureState();
@@ -282,19 +241,13 @@ function pauseRecording(): Promise<RecordingResponse> {
   });
 }
 
-/**
- * Stop the active tab capture session and clear the lecture session.
- *
- * This is the extension's "off switch": it stops capture, closes the socket,
- * clears the persisted capture record, AND clears the transcript session - so
- * a later activation starts clean and does not prompt about a stale lecture.
- */
+// Stops capture and clears both the persisted state and lecture session.
 function endRecording(): Promise<RecordingResponse> {
   return runRecordingOperation(async () => {
     const capture = await CaptureStore.getCaptureState();
 
     if (capture === null) {
-      // Nothing capturing, but still make sure no stale session lingers.
+      // Clear any transcript session left behind without an active capture.
       await TranscriptStore.clearSession();
 
       return {
@@ -315,9 +268,7 @@ function endRecording(): Promise<RecordingResponse> {
         info: "Tab capture stopped",
       };
     } catch (error) {
-      // Even if the stop path fails, drop the record and session so we never
-      // get stuck in a permanent "recording" state that no longer reflects
-      // reality.
+      // Clear local state even when stopping fails to avoid a stale recording state.
       disconnectWebSocket();
       await CaptureStore.clearCaptureState();
       await TranscriptStore.clearSession();

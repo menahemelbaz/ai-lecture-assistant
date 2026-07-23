@@ -2,29 +2,30 @@ const QUIZ_TOPICS_URL = "http://localhost:3000/quiz/topics";
 const QUIZ_QUESTION_URL = "http://localhost:3000/quiz/question";
 const REQUEST_TIMEOUT_MS = 30000;
 
-/**
- * Map a fetch/JSON error into a user-facing Hebrew message.
- */
+// Converts request and parsing failures into user-facing error messages.
 function describeError(err: unknown): string {
     const error = err as Error;
 
     if (error.name === "TypeError" && error.message.includes("fetch")) {
-        return "השרת לא פועל. אנא הפעל את השרת תחילה.";
+        return "The server is not running. Please start the server first.";
     }
 
     if (error.name === "AbortError") {
-        return "הבקשה ארכה זמן רב מדי. נסה שוב.";
+        return "The request took too long. Please try again.";
     }
 
-    return error.message || "שגיאה בתקשורת עם השרת.";
+    return error.message || "Error communicating with the server.";
 }
 
-/**
- * Fetch the list of practice topics for the given transcript.
- */
-async function fetchTopics(transcript: string): Promise<QuizTopicsResponse> {
+// Requests practice topics based on the provided lecture transcript.
+async function fetchTopics(
+    transcript: string
+): Promise<QuizTopicsResponse> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeoutId = setTimeout(
+        () => controller.abort(),
+        REQUEST_TIMEOUT_MS
+    );
 
     try {
         const response = await fetch(QUIZ_TOPICS_URL, {
@@ -50,7 +51,10 @@ async function fetchTopics(transcript: string): Promise<QuizTopicsResponse> {
         } = await response.json();
 
         if (!data.success) {
-            return { ok: false, error: data.error || "שגיאה בקבלת נושאים." };
+            return {
+                ok: false,
+                error: data.error || "Error receiving quiz topics.",
+            };
         }
 
         return {
@@ -61,19 +65,24 @@ async function fetchTopics(transcript: string): Promise<QuizTopicsResponse> {
     } catch (err) {
         clearTimeout(timeoutId);
         console.error("Error fetching quiz topics:", err);
-        return { ok: false, error: describeError(err) };
+
+        return {
+            ok: false,
+            error: describeError(err),
+        };
     }
 }
 
-/**
- * Fetch one multiple-choice question for the given transcript and topic.
- */
+// Requests one multiple-choice question for the selected lecture topic.
 async function fetchQuestion(
     transcript: string,
     topic: string
 ): Promise<QuizQuestionResponse> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeoutId = setTimeout(
+        () => controller.abort(),
+        REQUEST_TIMEOUT_MS
+    );
 
     try {
         const response = await fetch(QUIZ_QUESTION_URL, {
@@ -100,11 +109,17 @@ async function fetchQuestion(
         } = await response.json();
 
         if (!data.success) {
-            return { ok: false, error: data.error || "שגיאה בקבלת שאלה." };
+            return {
+                ok: false,
+                error: data.error || "Error receiving a quiz question.",
+            };
         }
 
         if (data.enoughContent === false) {
-            return { ok: true, enoughContent: false };
+            return {
+                ok: true,
+                enoughContent: false,
+            };
         }
 
         return {
@@ -116,7 +131,11 @@ async function fetchQuestion(
     } catch (err) {
         clearTimeout(timeoutId);
         console.error("Error fetching quiz question:", err);
-        return { ok: false, error: describeError(err) };
+
+        return {
+            ok: false,
+            error: describeError(err),
+        };
     }
 }
 

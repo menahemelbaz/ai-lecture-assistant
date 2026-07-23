@@ -1,2 +1,2 @@
 "use strict";
-// Shared type definitions for the Audio Script extension
+// Shared type definitions used throughout the Audio Script extension.

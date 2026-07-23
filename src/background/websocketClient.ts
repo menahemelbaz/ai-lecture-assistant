@@ -1,6 +1,5 @@
 const SERVER_WS_URL = "ws://localhost:3001";
 
-// Reconnection backoff bounds.
 const INITIAL_RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_DELAY_MS = 30000;
 
@@ -9,22 +8,16 @@ type TranscriptHandler = (text: string) => Promise<void> | void;
 let socket: WebSocket | null = null;
 let connecting = false;
 
-// The single active transcript handler. Kept at module level so that repeated
-// connect calls don't silently discard a newer handler, and so the reconnect
-// path can re-attach it without the caller passing it again.
+// Retains the latest transcript handler across reconnection attempts.
 let activeHandler: TranscriptHandler | null = null;
 
-// Set true only for an intentional shutdown, so the close handler knows not to
-// schedule a reconnect. This is what stops the socket from "fighting" a
-// deliberate disconnect when recording ends.
+// Prevents reconnection after a deliberate shutdown.
 let intentionalClose = false;
 
 let reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-/**
- * Cancel any pending reconnect attempt.
- */
+// Cancels any scheduled reconnection attempt.
 function clearReconnectTimer(): void {
   if (reconnectTimer !== null) {
     clearTimeout(reconnectTimer);
@@ -32,10 +25,7 @@ function clearReconnectTimer(): void {
   }
 }
 
-/**
- * Schedule a reconnect using exponential backoff, unless the socket was closed
- * intentionally or there is no handler to deliver transcripts to.
- */
+// Schedules one reconnection attempt using capped exponential backoff.
 function scheduleReconnect(): void {
   if (intentionalClose || activeHandler === null) {
     return;
@@ -54,13 +44,13 @@ function scheduleReconnect(): void {
     openSocket();
   }, delay);
 
-  // Grow the delay for the next attempt, capped at the maximum.
-  reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY_MS);
+  reconnectDelay = Math.min(
+    reconnectDelay * 2,
+    MAX_RECONNECT_DELAY_MS
+  );
 }
 
-/**
- * Open the underlying socket and wire up its event handlers.
- */
+// Opens the socket and registers its lifecycle event handlers.
 function openSocket(): void {
   if (socket && socket.readyState === WebSocket.OPEN) {
     return;
@@ -79,7 +69,7 @@ function openSocket(): void {
       console.log("WebSocket is connected");
       connecting = false;
 
-      // A healthy connection resets the backoff for future drops.
+      // Reset the backoff after a successful connection.
       reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
     };
 
@@ -106,13 +96,12 @@ function openSocket(): void {
       connecting = false;
       socket = null;
 
-      // Unexpected drop: try to recover. Intentional close: stay down.
+      // Reconnect only when the connection was not intentionally closed.
       scheduleReconnect();
     };
 
     socket.onerror = () => {
-      // Let onclose handle teardown and reconnect scheduling; closing here
-      // ensures onclose fires even if the socket got stuck mid-handshake.
+      // Closing the socket delegates cleanup and reconnection to onclose.
       if (socket) {
         try {
           socket.close();
@@ -126,22 +115,17 @@ function openSocket(): void {
   }
 }
 
-/**
- * Connect to the transcription server and register the transcript handler.
- * Safe to call multiple times: the latest handler always wins, and an existing
- * healthy connection is reused rather than duplicated.
- */
-export function connectWebSocket(onTranscript: TranscriptHandler): void {
+// Registers the latest transcript handler and opens or reuses the connection.
+export function connectWebSocket(
+  onTranscript: TranscriptHandler
+): void {
   activeHandler = onTranscript;
   intentionalClose = false;
 
   openSocket();
 }
 
-/**
- * Intentionally close the connection and stop reconnecting.
- * Call this when recording stops, so the socket doesn't linger or auto-revive.
- */
+// Closes the connection and disables all pending reconnection attempts.
 export function disconnectWebSocket(): void {
   intentionalClose = true;
   activeHandler = null;

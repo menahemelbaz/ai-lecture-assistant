@@ -1,6 +1,6 @@
-/* ===== Floating buttons ===== */
+/* ===== Floating Buttons ===== */
 
-/* Anchors the overlay wrapper to the bottom-right corner of the viewport. */
+/* Keeps the extension controls fixed above the page content. */
 #wrapper-main-button {
   position: fixed;
   right: 50px;
@@ -47,7 +47,7 @@
   transform: scale(1.25);
 }
 
-/* Keeps the secondary buttons hidden until the wrapper is hovered. */
+/* Secondary actions remain hidden until the main wrapper is hovered. */
 #secondary-buttons {
   display: none;
   flex-direction: column;
@@ -58,13 +58,13 @@
   display: none;
 }
 
-/* Displays the additional buttons whenever the wrapper is hovered. */
+/* Reveals the secondary actions with a short entrance animation. */
 #wrapper-main-button:hover #secondary-buttons {
   display: flex;
   animation: lecture-buttons-in 0.22s ease-out;
 }
 
-/* Gentle rise as the secondary buttons appear. */
+/* Animates the secondary buttons into view. */
 @keyframes lecture-buttons-in {
   from {
     opacity: 0;
@@ -77,7 +77,7 @@
   }
 }
 
-/* Applies a consistent rounded style to each secondary button. */
+/* Shared appearance for the secondary action buttons. */
 .buttons {
   padding: 16px;
   border: none;
@@ -92,7 +92,7 @@
     filter 0.2s ease;
 }
 
-/* Provides hover feedback with a blue shift and subtle zoom. */
+/* Provides clear visual feedback for interactive secondary actions. */
 .buttons:hover {
   background: linear-gradient(135deg, #6a9bfa 0%, #4d86f8 100%);
   transform: scale(1.1);
@@ -102,14 +102,13 @@
     0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Increases the icons inside the secondary buttons. */
 .buttons i {
   font-size: 33px;
 }
 
-/* ===== Chat panel ===== */
+/* ===== Chat Panel ===== */
 
-/* Chat panel displayed when the user opens the lecture Q&A feature. */
+/* Positions the lecture chat beside the floating extension controls. */
 #lecture-chat-panel {
   position: fixed;
   right: 170px;
@@ -131,7 +130,7 @@
   animation: lecture-chat-in 0.24s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
-/* Pop the chat panel in with a slight rise and scale. */
+/* Introduces the chat panel with a subtle rise and scale. */
 @keyframes lecture-chat-in {
   from {
     opacity: 0;
@@ -144,7 +143,6 @@
   }
 }
 
-/* Header area for the lecture chat window - a floating rounded card. */
 #lecture-chat-header {
   display: flex;
   align-items: center;
@@ -159,7 +157,6 @@
   box-shadow: 0 6px 18px rgba(230, 126, 34, 0.35);
 }
 
-/* Close button inside the chat header. */
 #lecture-chat-close {
   display: flex;
   align-items: center;
@@ -180,7 +177,7 @@
   transform: rotate(90deg);
 }
 
-/* Scrollable area that contains the chat messages - clean white background. */
+/* Allows the message history to scroll independently of the panel. */
 #lecture-chat-messages {
   flex: 1;
   padding: 8px 14px 14px;
@@ -188,7 +185,6 @@
   background-color: #ffffff;
 }
 
-/* Shared style for all chat messages - soft floating bubbles. */
 .lecture-chat-message {
   max-width: 85%;
   margin-bottom: 12px;
@@ -199,7 +195,7 @@
   word-break: break-word;
 }
 
-/* User messages appear aligned to the right. */
+/* User and assistant messages retain right-to-left text direction. */
 .lecture-chat-message.user {
   margin-left: auto;
   background: linear-gradient(135deg, #6a9bfa 0%, #4d86f8 100%);
@@ -209,7 +205,6 @@
   box-shadow: 0 4px 12px rgba(77, 134, 248, 0.28);
 }
 
-/* Assistant messages appear aligned to the left. */
 .lecture-chat-message.assistant {
   margin-right: auto;
   background-color: #ffffff;
@@ -220,13 +215,11 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
-/* Loading assistant message while waiting for an answer. */
 .lecture-chat-loading-message {
   width: fit-content;
   min-width: 52px;
 }
 
-/* Animated dots inside the loading message. */
 .lecture-chat-loading-dots {
   display: flex;
   align-items: center;
@@ -235,7 +228,7 @@
   height: 18px;
 }
 
-/* Single loading dot. */
+/* Pulsing dots indicate that an answer is being generated. */
 .lecture-chat-loading-dots span {
   width: 7px;
   height: 7px;
@@ -245,7 +238,6 @@
   animation: lecture-chat-dot-pulse 1.2s infinite ease-in-out;
 }
 
-/* Delays each dot so they light up one after another. */
 .lecture-chat-loading-dots span:nth-child(1) {
   animation-delay: 0s;
 }
@@ -258,7 +250,6 @@
   animation-delay: 0.4s;
 }
 
-/* Makes the loading dots fade in and out. */
 @keyframes lecture-chat-dot-pulse {
 
   0%,
@@ -274,7 +265,7 @@
   }
 }
 
-/* Input row at the bottom of the chat panel. */
+/* Keeps the input direction separate from the right-to-left message text. */
 #lecture-chat-input-row {
   display: flex;
   align-items: center;
@@ -288,7 +279,6 @@
   direction: ltr;
 }
 
-/* Text input used for lecture questions. */
 #lecture-chat-input {
   flex: 1;
   padding: 11px 13px;
@@ -308,7 +298,6 @@
   box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.12);
 }
 
-/* Send button for submitting a lecture question. */
 #lecture-chat-send {
   display: flex;
   flex-shrink: 0;
@@ -330,14 +319,13 @@
   box-shadow: 0 6px 16px rgba(230, 126, 34, 0.35);
 }
 
-/* Icon inside the send button. */
 #lecture-chat-send i {
   font-size: 16px;
 }
 
-/* ===== Quiz modal ===== */
+/* ===== Quiz Modal ===== */
 
-/* Full-screen dark overlay that blurs the page and centers the modal. */
+/* Creates a full-screen backdrop above both the page and chat controls. */
 #lecture-quiz-overlay {
   position: fixed;
   top: 0;
@@ -354,7 +342,7 @@
   animation: lecture-quiz-overlay-in 0.2s ease-out;
 }
 
-/* Fade the backdrop in. */
+/* Fades the quiz backdrop into view. */
 @keyframes lecture-quiz-overlay-in {
   from {
     opacity: 0;
@@ -365,7 +353,7 @@
   }
 }
 
-/* The centered quiz window. */
+/* Constrains the quiz to the viewport while preserving internal scrolling. */
 #lecture-quiz-modal {
   display: flex;
   flex-direction: column;
@@ -384,7 +372,7 @@
   animation: lecture-quiz-modal-in 0.24s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
-/* Pop the modal in with a slight rise and scale. */
+/* Introduces the quiz modal with a subtle rise and scale. */
 @keyframes lecture-quiz-modal-in {
   from {
     opacity: 0;
@@ -397,8 +385,7 @@
   }
 }
 
-/* Header with an orange gradient. The title is truly centered: the close
-   button is taken out of the flow so it doesn't offset the centering. */
+/* Absolute close-button positioning keeps the title visually centered. */
 #lecture-quiz-header {
   position: relative;
   display: flex;
@@ -410,7 +397,6 @@
   direction: rtl;
 }
 
-/* Title text in the quiz header. */
 #lecture-quiz-title {
   text-align: center;
   font-size: 18px;
@@ -418,7 +404,6 @@
   letter-spacing: 0.3px;
 }
 
-/* Close button, pinned to the left edge of the header. */
 #lecture-quiz-close {
   position: absolute;
   left: 18px;
@@ -443,7 +428,7 @@
   transform: translateY(-50%) rotate(90deg);
 }
 
-/* Scrollable body that holds topics, questions, and feedback. */
+/* Uses right-to-left layout for lecture topics, questions, and feedback. */
 #lecture-quiz-body {
   flex: 1;
   padding: 24px;
@@ -456,7 +441,6 @@
   color: #1f2430;
 }
 
-/* Section heading inside the body (e.g. the question text). */
 .lecture-quiz-heading {
   margin: 0 0 16px;
   font-size: 18px;
@@ -465,7 +449,6 @@
   color: #2a2f3a;
 }
 
-/* A selectable topic row. */
 .lecture-quiz-topic {
   display: flex;
   align-items: center;
@@ -492,7 +475,6 @@
   box-shadow: 0 6px 16px rgba(230, 126, 34, 0.16);
 }
 
-/* An answer option button. */
 .lecture-quiz-option {
   display: block;
   width: 100%;
@@ -517,19 +499,18 @@
   transform: translateY(-1px);
 }
 
-/* Correct option after answering. */
+/* Answer-state styles are applied after the user selects an option. */
 .lecture-quiz-option.correct {
   border-color: #2ecc71;
   background-color: #ecfdf3;
 }
 
-/* Incorrect chosen option after answering. */
 .lecture-quiz-option.incorrect {
   border-color: #e74c3c;
   background-color: #fef2f2;
 }
 
-/* Disable hover movement once answered. */
+/* Prevents answered options from retaining interactive hover behavior. */
 .lecture-quiz-option.answered {
   cursor: default;
 }
@@ -538,7 +519,6 @@
   transform: none;
 }
 
-/* Explanation text shown under an option after answering. */
 .lecture-quiz-explanation {
   margin-top: 8px;
   font-size: 13.5px;
@@ -547,14 +527,12 @@
   font-weight: 400;
 }
 
-/* Row of action buttons (next / finish). */
 .lecture-quiz-actions {
   display: flex;
   gap: 12px;
   margin-top: 20px;
 }
 
-/* Primary action button (gradient). */
 .lecture-quiz-btn-primary {
   flex: 1;
   padding: 14px 18px;
@@ -575,7 +553,6 @@
   filter: brightness(1.03);
 }
 
-/* Secondary action button (outline). */
 .lecture-quiz-btn-secondary {
   flex: 1;
   padding: 14px 18px;
@@ -595,7 +572,6 @@
   background-color: #f6f7f9;
 }
 
-/* Centered status / message text (loading, errors, "not enough content"). */
 .lecture-quiz-status {
   padding: 20px 8px;
   text-align: center;

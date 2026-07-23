@@ -1,9 +1,7 @@
 import { TranscriptStore } from "./transcriptStore.js";
 import { AskLectureClient } from "./askLectureClient.js";
 import { SummaryClient } from "./summaryClient.js";
-/**
- * Handle a lecture question request from the content script.
- */
+// Handles a lecture question request from the content script.
 async function handleAskLecture(msg, sender) {
     const requesterTabId = sender.tab?.id;
     const activeTabId = TranscriptStore.getActiveTabId();
@@ -11,7 +9,7 @@ async function handleAskLecture(msg, sender) {
     if (!question) {
         return {
             ok: false,
-            error: "לא התקבלה שאלה תקינה.",
+            error: "No valid question was received.",
         };
     }
     let fullTranscript = "";
@@ -23,9 +21,7 @@ async function handleAskLecture(msg, sender) {
     }
     return await AskLectureClient.askLecture(question, fullTranscript);
 }
-/**
- * Handle a lecture summary request from the content script.
- */
+// Handles a lecture summary request for the active transcript session.
 async function handleGenerateSummary(sender) {
     const requesterTabId = sender.tab?.id;
     const activeTabId = TranscriptStore.getActiveTabId();
@@ -39,7 +35,7 @@ async function handleGenerateSummary(sender) {
     if (!fullTranscript) {
         return {
             ok: false,
-            error: "אין תמלול זמין לסיכום, אנא הפעל הקלטה תחילה",
+            error: "No transcript is available for summarization. Please start recording first.",
         };
     }
     return await SummaryClient.generateSummaryPdf(fullTranscript);
