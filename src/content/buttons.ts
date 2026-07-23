@@ -1,12 +1,34 @@
 window.Buttons = {
   addIconsLink(): void {
-    const icons: HTMLLinkElement = document.createElement("link");
+    // Loads the external stylesheets the extension UI depends on: the Font
+    // Awesome icon set and the Rubik font used across all panels. Guarded so
+    // repeated activations don't append duplicate <link> tags.
+    const stylesheets: { id: string; href: string }[] = [
+      {
+        id: "lecture-assistant-icons",
+        href:
+          "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css",
+      },
+      {
+        id: "lecture-assistant-font",
+        href:
+          "https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap",
+      },
+    ];
 
-    icons.rel = "stylesheet";
-    icons.href =
-      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css";
+    for (const sheet of stylesheets) {
+      if (document.getElementById(sheet.id)) {
+        continue;
+      }
 
-    document.head.appendChild(icons);
+      const link: HTMLLinkElement = document.createElement("link");
+
+      link.id = sheet.id;
+      link.rel = "stylesheet";
+      link.href = sheet.href;
+
+      document.head.appendChild(link);
+    }
   },
 
   createButton(

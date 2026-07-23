@@ -1,3 +1,5 @@
+/* ===== Floating buttons ===== */
+
 /* Anchors the overlay wrapper to the bottom-right corner of the viewport. */
 #wrapper-main-button {
   position: fixed;
@@ -20,9 +22,20 @@
   border: none;
   border-radius: 50%;
   overflow: hidden;
-  background-color: #e67e22;
+  background: linear-gradient(135deg, #f39c42 0%, #e67e22 100%);
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 6px 18px rgba(230, 126, 34, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.25s ease, filter 0.2s ease;
+}
+
+.main-button:hover {
+  transform: scale(1.05);
+  filter: brightness(1.04);
+  box-shadow:
+    0 10px 26px rgba(230, 126, 34, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
 .main-button-logo {
@@ -48,6 +61,20 @@
 /* Displays the additional buttons whenever the wrapper is hovered. */
 #wrapper-main-button:hover #secondary-buttons {
   display: flex;
+  animation: lecture-buttons-in 0.22s ease-out;
+}
+
+/* Gentle rise as the secondary buttons appear. */
+@keyframes lecture-buttons-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Applies a consistent rounded style to each secondary button. */
@@ -55,23 +82,32 @@
   padding: 16px;
   border: none;
   border-radius: 50%;
-  background-color: #e67e22;
+  background: linear-gradient(135deg, #f39c42 0%, #e67e22 100%);
   color: white;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.3s ease;
+  box-shadow:
+    0 5px 14px rgba(230, 126, 34, 0.35),
+    0 2px 5px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.3s ease, background 0.25s ease,
+    filter 0.2s ease;
 }
 
-/* Provides hover feedback with a color shift and subtle zoom. */
+/* Provides hover feedback with a blue shift and subtle zoom. */
 .buttons:hover {
-  background-color: #4d86f8;
+  background: linear-gradient(135deg, #6a9bfa 0%, #4d86f8 100%);
   transform: scale(1.1);
+  filter: brightness(1.03);
+  box-shadow:
+    0 8px 20px rgba(77, 134, 248, 0.4),
+    0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Increases the icons inside the secondary buttons. */
 .buttons i {
   font-size: 33px;
 }
+
+/* ===== Chat panel ===== */
 
 /* Chat panel displayed when the user opens the lecture Q&A feature. */
 #lecture-chat-panel {
@@ -81,26 +117,46 @@
   z-index: 9999;
   display: none;
   flex-direction: column;
-  width: 380px;
-  height: 460px;
+  width: 390px;
+  height: 470px;
   overflow: hidden;
-  border-radius: 16px;
-  background-color: white;
-  color: #222;
-  font-family: Arial, sans-serif;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  border-radius: 22px;
+  background-color: #ffffff;
+  color: #1f2430;
+  font-family: "Rubik", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial,
+    sans-serif;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.32),
+    0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: lecture-chat-in 0.24s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
-/* Header area for the lecture chat window. */
+/* Pop the chat panel in with a slight rise and scale. */
+@keyframes lecture-chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header area for the lecture chat window - a floating rounded card. */
 #lecture-chat-header {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 12px 14px;
-  background-color: #e67e22;
+  margin: 12px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f39c42 0%, #e67e22 100%);
   color: white;
   font-size: 15px;
-  font-weight: bold;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(230, 126, 34, 0.35);
 }
 
 /* Close button inside the chat header. */
@@ -108,48 +164,60 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 32px;
+  height: 32px;
   border: none;
-  background: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
   color: white;
   cursor: pointer;
-  font-size: 22px;
+  font-size: 18px;
+  transition: background 0.18s ease, transform 0.18s ease;
 }
 
-/* Scrollable area that contains the chat messages. */
+#lecture-chat-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+/* Scrollable area that contains the chat messages - clean white background. */
 #lecture-chat-messages {
   flex: 1;
-  padding: 12px;
+  padding: 8px 14px 14px;
   overflow-y: auto;
-  background-color: #f7f7f7;
+  background-color: #ffffff;
 }
 
-/* Shared style for all chat messages. */
+/* Shared style for all chat messages - soft floating bubbles. */
 .lecture-chat-message {
   max-width: 85%;
-  margin-bottom: 10px;
-  padding: 9px 11px;
-  border-radius: 12px;
+  margin-bottom: 12px;
+  padding: 11px 14px;
+  border-radius: 16px;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.5;
   word-break: break-word;
 }
 
 /* User messages appear aligned to the right. */
 .lecture-chat-message.user {
   margin-left: auto;
-  background-color: #4d86f8;
+  background: linear-gradient(135deg, #6a9bfa 0%, #4d86f8 100%);
   color: white;
   direction: rtl;
   text-align: right;
+  box-shadow: 0 4px 12px rgba(77, 134, 248, 0.28);
 }
 
 /* Assistant messages appear aligned to the left. */
 .lecture-chat-message.assistant {
   margin-right: auto;
-  background-color: #e9e9e9;
-  color: #222;
+  background-color: #ffffff;
+  color: #1f2430;
   direction: rtl;
   text-align: right;
+  border: 1px solid #eceef1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
 /* Loading assistant message while waiting for an answer. */
@@ -172,8 +240,8 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: #555;
-  opacity: 0.25;
+  background-color: #e67e22;
+  opacity: 0.3;
   animation: lecture-chat-dot-pulse 1.2s infinite ease-in-out;
 }
 
@@ -196,7 +264,7 @@
   0%,
   80%,
   100% {
-    opacity: 0.25;
+    opacity: 0.3;
     transform: scale(1);
   }
 
@@ -211,23 +279,33 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  margin: 0 12px 12px;
   padding: 10px;
-  border-top: 1px solid #ddd;
-  background-color: white;
+  border: 1px solid #eceef1;
+  border-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
   direction: ltr;
 }
 
 /* Text input used for lecture questions. */
 #lecture-chat-input {
   flex: 1;
-  padding: 9px;
-  border: 1px solid #ccc;
-  border-radius: 10px;
+  padding: 11px 13px;
+  border: 1.5px solid #e6e8ec;
+  border-radius: 12px;
   outline: none;
   direction: rtl;
   text-align: right;
-  font-family: Arial, sans-serif;
+  font-family: "Rubik", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial,
+    sans-serif;
   font-size: 14px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+#lecture-chat-input:focus {
+  border-color: #e67e22;
+  box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.12);
 }
 
 /* Send button for submitting a lecture question. */
@@ -236,16 +314,291 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border: none;
   border-radius: 50%;
-  background-color: #e67e22;
+  background: linear-gradient(135deg, #f39c42 0%, #e67e22 100%);
   color: white;
   cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.2s ease, filter 0.18s ease;
+}
+
+#lecture-chat-send:hover {
+  transform: scale(1.06);
+  filter: brightness(1.04);
+  box-shadow: 0 6px 16px rgba(230, 126, 34, 0.35);
 }
 
 /* Icon inside the send button. */
 #lecture-chat-send i {
   font-size: 16px;
+}
+
+/* ===== Quiz modal ===== */
+
+/* Full-screen dark overlay that blurs the page and centers the modal. */
+#lecture-quiz-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(17, 17, 20, 0.68);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: lecture-quiz-overlay-in 0.2s ease-out;
+}
+
+/* Fade the backdrop in. */
+@keyframes lecture-quiz-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* The centered quiz window. */
+#lecture-quiz-modal {
+  display: flex;
+  flex-direction: column;
+  width: 540px;
+  max-width: 92vw;
+  max-height: 82vh;
+  overflow: hidden;
+  border-radius: 22px;
+  background-color: #ffffff;
+  color: #1f2430;
+  font-family: "Rubik", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial,
+    sans-serif;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.4),
+    0 4px 14px rgba(0, 0, 0, 0.25);
+  animation: lecture-quiz-modal-in 0.24s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/* Pop the modal in with a slight rise and scale. */
+@keyframes lecture-quiz-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header with an orange gradient. The title is truly centered: the close
+   button is taken out of the flow so it doesn't offset the centering. */
+#lecture-quiz-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, #f39c42 0%, #e67e22 100%);
+  color: white;
+  direction: rtl;
+}
+
+/* Title text in the quiz header. */
+#lecture-quiz-title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* Close button, pinned to the left edge of the header. */
+#lecture-quiz-close {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: white;
+  cursor: pointer;
+  font-size: 18px;
+  transform: translateY(-50%);
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+#lecture-quiz-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-50%) rotate(90deg);
+}
+
+/* Scrollable body that holds topics, questions, and feedback. */
+#lecture-quiz-body {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background-color: #f6f7f9;
+  direction: rtl;
+  text-align: right;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #1f2430;
+}
+
+/* Section heading inside the body (e.g. the question text). */
+.lecture-quiz-heading {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #2a2f3a;
+}
+
+/* A selectable topic row. */
+.lecture-quiz-topic {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 15px 18px;
+  border: 1.5px solid #e6e8ec;
+  border-radius: 14px;
+  background-color: #ffffff;
+  color: #1f2430;
+  font-family: inherit;
+  font-size: 15.5px;
+  font-weight: 500;
+  text-align: right;
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.14s ease,
+    box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.lecture-quiz-topic:hover {
+  border-color: #e67e22;
+  background-color: #fff8f2;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(230, 126, 34, 0.16);
+}
+
+/* An answer option button. */
+.lecture-quiz-option {
+  display: block;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 15px 18px;
+  border: 1.5px solid #e6e8ec;
+  border-radius: 14px;
+  background-color: #ffffff;
+  color: #1f2430;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: right;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease,
+    transform 0.14s ease;
+}
+
+.lecture-quiz-option:hover {
+  border-color: #e67e22;
+  background-color: #fff8f2;
+  transform: translateY(-1px);
+}
+
+/* Correct option after answering. */
+.lecture-quiz-option.correct {
+  border-color: #2ecc71;
+  background-color: #ecfdf3;
+}
+
+/* Incorrect chosen option after answering. */
+.lecture-quiz-option.incorrect {
+  border-color: #e74c3c;
+  background-color: #fef2f2;
+}
+
+/* Disable hover movement once answered. */
+.lecture-quiz-option.answered {
+  cursor: default;
+}
+
+.lecture-quiz-option.answered:hover {
+  transform: none;
+}
+
+/* Explanation text shown under an option after answering. */
+.lecture-quiz-explanation {
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #4a5160;
+  font-weight: 400;
+}
+
+/* Row of action buttons (next / finish). */
+.lecture-quiz-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+/* Primary action button (gradient). */
+.lecture-quiz-btn-primary {
+  flex: 1;
+  padding: 14px 18px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f39c42 0%, #e67e22 100%);
+  color: white;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.lecture-quiz-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(230, 126, 34, 0.3);
+  filter: brightness(1.03);
+}
+
+/* Secondary action button (outline). */
+.lecture-quiz-btn-secondary {
+  flex: 1;
+  padding: 14px 18px;
+  border: 1.5px solid #d4d7dd;
+  border-radius: 14px;
+  background-color: #ffffff;
+  color: #4a5160;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.lecture-quiz-btn-secondary:hover {
+  border-color: #b8bcc4;
+  background-color: #f6f7f9;
+}
+
+/* Centered status / message text (loading, errors, "not enough content"). */
+.lecture-quiz-status {
+  padding: 20px 8px;
+  text-align: center;
+  font-size: 15px;
+  color: #4a5160;
 }

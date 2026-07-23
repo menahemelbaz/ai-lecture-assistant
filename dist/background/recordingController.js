@@ -1,6 +1,6 @@
 import { TranscriptStore } from "./transcriptStore.js";
 import { CaptureStore } from "./captureStore.js";
-import { connectWebSocket } from "./websocketClient.js";
+import { connectWebSocket, disconnectWebSocket } from "./websocketClient.js";
 import { TabCaptureController } from "./tabCaptureController.js";
 // Serialize recording state changes so pause, resume, and stop operations
 // cannot run at the same time.
@@ -12,10 +12,14 @@ function runRecordingOperation(operation) {
 }
 /**
  * Connect to the transcription WebSocket and store incoming transcript chunks.
+ * Each chunk is tagged with the session that was active when the socket opened,
+ * so chunks that outlive a lecture switch are dropped instead of leaking into
+ * the next lecture.
  */
 function connectTranscriptWebSocket() {
     connectWebSocket(async (text) => {
-        await TranscriptStore.appendTranscript(text);
+        const sessionId = TranscriptStore.getCurrentSessionId() ?? undefined;
+        await TranscriptStore.appendTranscript(text, sessionId);
     });
 }
 /**
@@ -105,10 +109,12 @@ async function beginRecordingForTab(tabId) {
 function resumeRecordingForTab(tabId, lectureContext, confirmNewSession = false) {
     return runRecordingOperation(async () => {
         const capture = await CaptureStore.getCaptureState();
+        // With the new activation flow this should not normally happen (no buttons
+        // and no arming without an icon click), so this is just a safety guard.
         if (capture === null || capture.tabId !== tabId) {
             return {
                 ok: false,
-                error: "Click the extension icon on this tab before playing the video",
+                error: "Extension is not active on this tab",
             };
         }
         const currentSession = TranscriptStore.getCurrentSession();
@@ -127,7 +133,12 @@ function resumeRecordingForTab(tabId, lectureContext, confirmNewSession = false)
                     error: "Starting a new session will clear the current transcript",
                 };
             }
+            // Switching lectures. Tear down the socket first so any in-flight chunk
+            // from the previous lecture lands on a closed connection and is dropped,
+            // then start the new session, then reconnect for the new lecture.
+            disconnectWebSocket();
             await TranscriptStore.startNewTranscriptSession(tabId, lectureContext);
+            connectTranscriptWebSocket();
         }
         if (capture.status === "recording") {
             return {
@@ -193,12 +204,18 @@ function pauseRecording() {
     });
 }
 /**
- * Stop the active tab capture session.
+ * Stop the active tab capture session and clear the lecture session.
+ *
+ * This is the extension's "off switch": it stops capture, closes the socket,
+ * clears the persisted capture record, AND clears the transcript session - so
+ * a later activation starts clean and does not prompt about a stale lecture.
  */
 function endRecording() {
     return runRecordingOperation(async () => {
         const capture = await CaptureStore.getCaptureState();
         if (capture === null) {
+            // Nothing capturing, but still make sure no stale session lingers.
+            await TranscriptStore.clearSession();
             return {
                 ok: true,
                 info: "No active recording to stop",
@@ -206,16 +223,21 @@ function endRecording() {
         }
         try {
             await TabCaptureController.stopTabCapturePath();
+            disconnectWebSocket();
             await CaptureStore.clearCaptureState();
+            await TranscriptStore.clearSession();
             return {
                 ok: true,
                 info: "Tab capture stopped",
             };
         }
         catch (error) {
-            // Even if the stop path fails, drop the record so we never get stuck in a
-            // permanent "recording" state that no longer reflects reality.
+            // Even if the stop path fails, drop the record and session so we never
+            // get stuck in a permanent "recording" state that no longer reflects
+            // reality.
+            disconnectWebSocket();
             await CaptureStore.clearCaptureState();
+            await TranscriptStore.clearSession();
             const message = error instanceof Error
                 ? error.message
                 : "Failed to stop tab capture";

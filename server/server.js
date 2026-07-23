@@ -10,6 +10,7 @@ const WebSocket = require("ws");
 const askRoute = require("./routes/askRoute");
 const createStreamRoute = require("./routes/streamRoute");
 const createSummarizeRoute = require("./routes/summarizeRoute");
+const quizRoute = require("./routes/quizRoute");
 
 // Create the Express application.
 const app = express();
@@ -66,6 +67,8 @@ app.use(
 
 // Register the route that answers questions based on the lecture transcript.
 app.use("/ask", askRoute);
+
+app.use("/quiz", quizRoute);
 
 app.listen(port, () => console.log(`HTTP Server running on port ${port}`));
 console.log("WebSocket Server running on port 3001");

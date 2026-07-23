@@ -92,20 +92,11 @@ function requestRecordingStart(
         return;
       }
 
-      if (!response?.ok && response?.error) {
-        if (
-          response.error ===
-          "Click the extension icon on this tab before playing the video"
-        ) {
-          window.alert(
-            "Please click the extension icon before starting the lecture."
-          );
-
-          videosStartedAfterUserClick.delete(video);
-          return;
-        }
-
-        console.warn(response.error);
+      // Recording could not start for some other reason. Reset the flag so a
+      // later user-initiated play can try again. No user-facing warning here:
+      // in the new activation flow the common failure cases are handled
+      // elsewhere.
+      if (!response?.ok) {
         videosStartedAfterUserClick.delete(video);
       }
     }
@@ -139,26 +130,55 @@ function startRecordingIfVideoIsAlreadyPlaying(): boolean {
 // If a video event happens shortly after a click, treat it as user-initiated.
 document.addEventListener("click", markUserClick, true);
 
-// Receive notification from the background after tab capture is armed.
+// Receive notifications from the background about activation / deactivation.
 chrome.runtime.onMessage.addListener(
   (
     message: ExtensionMessage,
     _sender: chrome.runtime.MessageSender,
     sendResponse: (response: RecordingResponse) => void
   ) => {
-    if (message.type !== "CAPTURE_ARMED") {
-      return;
+    // Activation: the user clicked the extension icon.
+    if (message.type === "CAPTURE_ARMED") {
+      // Only activate the UI if a video is actually present on the page.
+      if (!ContentUI.hasVideo()) {
+        window.alert("לא זוהה וידאו בעמוד.");
+
+        sendResponse({
+          ok: false,
+          error: "No video on page",
+        });
+
+        return true;
+      }
+
+      // Video present: show the buttons and, if it is already playing, begin.
+      ContentUI.showExtensionButtons();
+
+      const recordingRequested = startRecordingIfVideoIsAlreadyPlaying();
+
+      sendResponse({
+        ok: true,
+        info: recordingRequested
+          ? "Recording requested for the playing video"
+          : "Buttons shown and waiting for the video to play",
+      });
+
+      return true;
     }
 
-    const recordingRequested =
-      startRecordingIfVideoIsAlreadyPlaying();
+    // Deactivation: the user clicked the icon again to turn the extension off.
+    if (message.type === "CAPTURE_DISARMED") {
+      ContentUI.hideExtensionButtons();
 
-    sendResponse({
-      ok: true,
-      info: recordingRequested
-        ? "Recording requested for the playing video"
-        : "Capture armed and waiting for the video to play",
-    });
+      sendResponse({
+        ok: true,
+        info: "Extension UI removed",
+      });
+
+      return true;
+    }
+
+    return undefined;
   }
 );
 
@@ -169,6 +189,16 @@ window.Manager = {
 
     // Attach click handlers to the extension buttons.
     Controller.onClick();
+  },
+
+  /**
+   * Mark a video as user-started without sending a new recording request.
+   * Used after a refresh when the video is already playing and capture is
+   * already running in the background - so the pause listener will correctly
+   * stop recording when the user later pauses.
+   */
+  markVideoAsUserStarted(video: HTMLVideoElement): void {
+    videosStartedAfterUserClick.add(video);
   },
 
   startRecordingOnPlay(video: HTMLVideoElement): void {
