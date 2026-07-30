@@ -3,7 +3,6 @@
   "name": "AI Lecture Assistant",
   "version": "1.0",
   "description": "AI study assistant for recorded lectures",
-
   "permissions": [
     "scripting",
     "storage",
@@ -13,32 +12,33 @@
     "offscreen",
     "activeTab"
   ],
-
   "host_permissions": [
     "http://localhost:3000/*",
     "ws://localhost:3001/*",
     "<all_urls>"
   ],
-
   "background": {
     "service_worker": "dist/background.js",
     "type": "module"
   },
-
   "action": {
     "default_title": "Start or stop lecture capture",
-     "default_icon": {
-    "16": "images/icon16.png",
-    "32": "images/icon32.png",
-    "48": "images/icon48.png",
-    "128": "images/icon128.png"
-  }
+    "default_icon": {
+      "16": "images/icon16.png",
+      "32": "images/icon32.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
   },
-
+  "options_page": "dist/options/options.html",
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "css": ["style/overlay.css"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "css": [
+        "style/overlay.css"
+      ],
       "js": [
         "dist/content/buttons.js",
         "dist/content/controller.js",
@@ -48,7 +48,6 @@
       "run_at": "document_end"
     }
   ],
-
   "web_accessible_resources": [
     {
       "resources": [
@@ -56,10 +55,11 @@
         "style/overlay.css",
         "dist/content/*.js"
       ],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
-
   "icons": {
     "16": "images/icon16.png",
     "48": "images/icon48.png",
