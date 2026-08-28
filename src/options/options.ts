@@ -1,12 +1,12 @@
 const API_KEY_STORAGE_KEY = "openaiApiKey";
 
+// How long the primary button shows the "Saved ✓" confirmation.
+const SAVED_FEEDBACK_MS = 1600;
+
 /**
  * Show a status message with a success or error style.
  */
-function showStatus(
-    message: string,
-    kind: "success" | "error"
-): void {
+function showStatus(message: string, kind: "success" | "error"): void {
     const status = document.getElementById(
         "status-message"
     ) as HTMLParagraphElement | null;
@@ -18,6 +18,50 @@ function showStatus(
     status.textContent = message;
     status.classList.remove("success", "error");
     status.classList.add(kind);
+}
+
+/**
+ * Reflect whether a key is currently saved: the header connection badge, the
+ * primary button label, and whether the Remove button is shown at all.
+ */
+function reflectKeyPresence(isSet: boolean): void {
+    const badge = document.getElementById("connection-badge");
+    if (badge) {
+        badge.textContent = isSet ? "Connected" : "Not connected";
+        badge.classList.toggle("is-connected", isSet);
+    }
+
+    const saveButton = document.getElementById("save-button");
+    if (saveButton && !saveButton.classList.contains("is-saved")) {
+        saveButton.textContent = isSet ? "Update key" : "Save API key";
+    }
+
+    const clearButton = document.getElementById(
+        "clear-button"
+    ) as HTMLButtonElement | null;
+    if (clearButton) {
+        clearButton.hidden = !isSet;
+    }
+}
+
+/**
+ * Briefly show a "Saved ✓" confirmation on the primary button, then restore it.
+ */
+function flashSaved(): void {
+    const saveButton = document.getElementById("save-button");
+
+    if (!saveButton) {
+        return;
+    }
+
+    saveButton.classList.add("is-saved");
+    saveButton.textContent = "Saved ✓";
+
+    setTimeout(() => {
+        saveButton.classList.remove("is-saved");
+        // A key exists at this point, so restore to the "Update key" label.
+        saveButton.textContent = "Update key";
+    }, SAVED_FEEDBACK_MS);
 }
 
 /**
@@ -35,15 +79,17 @@ async function loadSavedKey(): Promise<void> {
     try {
         const result = await chrome.storage.local.get(API_KEY_STORAGE_KEY);
         const savedKey = result[API_KEY_STORAGE_KEY];
+        const isSet = typeof savedKey === "string" && savedKey.length > 0;
 
-        if (typeof savedKey === "string" && savedKey) {
+        if (isSet) {
             const input = document.getElementById(
                 "api-key-input"
             ) as HTMLInputElement;
 
             input.value = savedKey;
-            showStatus("Saved key loaded.", "success");
         }
+
+        reflectKeyPresence(isSet);
     } catch (err) {
         console.error("Error loading saved key:", err);
     }
@@ -74,7 +120,9 @@ async function saveKey(): Promise<void> {
 
     try {
         await chrome.storage.local.set({ [API_KEY_STORAGE_KEY]: key });
-        showStatus("Key saved successfully.", "success");
+        showStatus("API key saved successfully.", "success");
+        reflectKeyPresence(true);
+        flashSaved();
     } catch (err) {
         console.error("Error saving key:", err);
         showStatus("Error saving the key.", "error");
@@ -93,7 +141,8 @@ async function clearKey(): Promise<void> {
         ) as HTMLInputElement;
 
         input.value = "";
-        showStatus("Key removed.", "success");
+        showStatus("API key removed.", "success");
+        reflectKeyPresence(false);
     } catch (err) {
         console.error("Error clearing key:", err);
         showStatus("Error removing the key.", "error");

@@ -76,6 +76,7 @@ interface SummaryResponse {
   ok: boolean;
   info?: string;
   error?: string;
+  html?: string;
 }
 
 // Response returned by internal offscreen capture operations.

@@ -36,6 +36,7 @@ interface Window {
     ): HTMLDivElement | null;
     sendChatMessage(): void;
     textSummary(summaryButton: HTMLButtonElement): Promise<void>;
+    printSummaryHtml(html: string): void;
     onClick(): void;
   };
 

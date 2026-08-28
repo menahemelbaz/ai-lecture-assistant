@@ -9,44 +9,114 @@
 </head>
 
 <body>
-    <main class="container">
-        <h1 class="title">AI Lecture Assistant Settings</h1>
-
-        <section class="card">
-            <h2 class="section-title">OpenAI API Key</h2>
-
-            <p class="description">
-                This extension uses your personal OpenAI API key to transcribe lectures,
-                answer questions, and generate summaries. Your key is stored only on your
-                own device.
-            </p>
-
-            <div class="input-row">
-                <input id="api-key-input" type="password" class="input" placeholder="sk-proj-..." autocomplete="off"
-                    spellcheck="false" />
-                <button id="toggle-visibility" class="icon-button" type="button" title="Show/hide">
-                    👁
-                </button>
+    <main class="page">
+        <header class="page-header">
+            <div class="brand">
+                <div class="brand-mark">
+                    <img src="../../images/icon128.png" alt="AI Lecture Assistant logo" />
+                </div>
+                <div class="brand-text">
+                    <h1 class="page-title">Settings</h1>
+                    <p class="page-subtitle">Configure your OpenAI connection</p>
+                </div>
             </div>
+            <span class="conn-badge" id="connection-badge">Not connected</span>
+        </header>
 
-            <div class="actions">
-                <button id="save-button" class="primary-button" type="button">
-                    Save Key
-                </button>
-                <button id="clear-button" class="secondary-button" type="button">
-                    Remove Key
-                </button>
-            </div>
+        <div class="layout">
+            <section class="panel">
+                <h2 class="panel-title">OpenAI connection</h2>
+                <p class="panel-desc">
+                    Use your personal OpenAI API key to enable transcription, questions and
+                    summaries. Your key is stored locally on this device.
+                </p>
 
-            <p id="status-message" class="status" role="status"></p>
+                <div class="field">
+                    <label class="field-label" for="api-key-input">API key</label>
+                    <div class="input-wrap">
+                        <span class="key-icon" aria-hidden="true">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="7.5" cy="15.5" r="4.5" />
+                                <path d="M10.7 12.3 21 2m-4 0 3 3m-5 2 3 3" />
+                            </svg>
+                        </span>
+                        <input id="api-key-input" type="password" class="key-input" placeholder="sk-proj-..."
+                            autocomplete="off" spellcheck="false" />
+                        <button id="toggle-visibility" class="eye-button" type="button"
+                            aria-label="Show or hide the API key">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="field-help">Used only for direct requests to OpenAI</p>
+                </div>
 
-            <p class="help">
-                Don't have a key? You can create one at
-                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">
-                    platform.openai.com/api-keys
+                <div class="actions">
+                    <button id="save-button" class="btn-primary" type="button">Save API key</button>
+                    <button id="clear-button" class="btn-ghost" type="button" hidden>Remove key</button>
+                </div>
+
+                <p id="status-message" class="status" role="status"></p>
+
+                <div class="security">
+                    <span class="security-icon" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                    </span>
+                    <div class="security-text">
+                        <p class="security-title">Stored locally</p>
+                        <p class="security-copy">
+                            Your API key <strong>stays on this device</strong> and is only sent
+                            directly to OpenAI when making API requests.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="guide">
+                <h2 class="guide-title">Set up your API key</h2>
+
+                <ol class="steps">
+                    <li class="step">
+                        <span class="step-num">01</span>
+                        <div class="step-body">
+                            <p class="step-title">Open OpenAI Platform</p>
+                            <p class="step-desc">Sign in to your account.</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <span class="step-num">02</span>
+                        <div class="step-body">
+                            <p class="step-title">Create a secret key</p>
+                            <p class="step-desc">Copy the key after creating it.</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <span class="step-num">03</span>
+                        <div class="step-body">
+                            <p class="step-title">Paste it here</p>
+                            <p class="step-desc">Save it to finish setup.</p>
+                        </div>
+                    </li>
+                </ol>
+
+                <a class="btn-secondary" href="https://platform.openai.com/api-keys" target="_blank"
+                    rel="noopener noreferrer">
+                    Open OpenAI Platform
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M7 17 17 7M9 7h8v8" />
+                    </svg>
                 </a>
-            </p>
-        </section>
+            </aside>
+        </div>
     </main>
 
     <script src="options.js"></script>

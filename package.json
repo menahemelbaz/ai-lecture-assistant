@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "background.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && mkdir -p dist/options && cp src/options/options.html src/options/options.css dist/options/",
     "watch": "tsc --watch"
   },
   "keywords": [],

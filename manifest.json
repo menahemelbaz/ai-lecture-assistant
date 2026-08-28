@@ -3,6 +3,10 @@
   "name": "AI Lecture Assistant",
   "version": "1.0",
   "description": "AI study assistant for recorded lectures",
+  "options_ui": {
+    "page": "dist/options/options.html",
+    "open_in_tab": true
+  },
   "permissions": [
     "scripting",
     "storage",

@@ -12,6 +12,14 @@ TranscriptStore.loadTranscriptState()
     console.error("Failed to initialize background state:", err);
   });
 
+// Open the options page on first install so the user can add their API key
+// before trying to use the extension.
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install") {
+    chrome.runtime.openOptionsPage();
+  }
+});
+
 chrome.action.onClicked.addListener(async (tab) => {
   const tabId = tab.id;
 
@@ -289,7 +297,7 @@ chrome.runtime.onMessage.addListener(
           };
         }
 
-        return await SummaryClient.generateSummaryPdf(fullTranscript);
+        return await SummaryClient.generateSummaryHtml(fullTranscript);
       }
 
       return {

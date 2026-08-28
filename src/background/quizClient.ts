@@ -1,142 +1,162 @@
-const QUIZ_TOPICS_URL = "http://localhost:3000/quiz/topics";
-const QUIZ_QUESTION_URL = "http://localhost:3000/quiz/question";
-const REQUEST_TIMEOUT_MS = 30000;
+import { OpenAiClient } from "../config/openaiClient.js";
+import {
+    buildQuizTopicsMessages,
+    buildQuizQuestionMessages,
+} from "./prompts.js";
+import { describeErrorKind } from "./errorMessages.js";
 
-// Converts request and parsing failures into user-facing error messages.
-function describeError(err: unknown): string {
-    const error = err as Error;
+const MODEL = "gpt-4o-mini";
 
-    if (error.name === "TypeError" && error.message.includes("fetch")) {
-        return "The server is not running. Please start the server first.";
+// A tiny floor that only guards against an essentially empty transcript. The
+// real "is there enough to practice?" judgment is left to the model, which
+// returns an empty topic list when there is nothing substantive.
+const MIN_NONEMPTY_LENGTH = 20;
+
+// Validates a parsed value as a well-formed question with exactly one correct
+// option out of four, before it is handed to the UI.
+function isValidQuizQuestion(
+    value: unknown
+): value is { question: string; options: QuizOption[] } {
+    if (!value || typeof value !== "object") {
+        return false;
     }
 
-    if (error.name === "AbortError") {
-        return "The request took too long. Please try again.";
+    const candidate = value as { question?: unknown; options?: unknown };
+
+    if (typeof candidate.question !== "string" || !candidate.question.trim()) {
+        return false;
     }
 
-    return error.message || "Error communicating with the server.";
-}
+    if (!Array.isArray(candidate.options) || candidate.options.length !== 4) {
+        return false;
+    }
 
-// Requests practice topics based on the provided lecture transcript.
-async function fetchTopics(
-    transcript: string
-): Promise<QuizTopicsResponse> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-        () => controller.abort(),
-        REQUEST_TIMEOUT_MS
+    const allOptionsValid = candidate.options.every(
+        (opt): boolean =>
+            !!opt &&
+            typeof opt === "object" &&
+            typeof opt.text === "string" &&
+            opt.text.trim().length > 0 &&
+            typeof opt.isCorrect === "boolean" &&
+            typeof opt.explanation === "string" &&
+            opt.explanation.trim().length > 0
     );
 
-    try {
-        const response = await fetch(QUIZ_TOPICS_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ transcript }),
-            signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            throw new Error(
-                `Server returned ${response.status}: ${response.statusText}`
-            );
-        }
-
-        const data: {
-            success: boolean;
-            enoughContent?: boolean;
-            topics?: string[];
-            error?: string;
-        } = await response.json();
-
-        if (!data.success) {
-            return {
-                ok: false,
-                error: data.error || "Error receiving quiz topics.",
-            };
-        }
-
-        return {
-            ok: true,
-            enoughContent: data.enoughContent === true,
-            topics: Array.isArray(data.topics) ? data.topics : [],
-        };
-    } catch (err) {
-        clearTimeout(timeoutId);
-        console.error("Error fetching quiz topics:", err);
-
-        return {
-            ok: false,
-            error: describeError(err),
-        };
+    if (!allOptionsValid) {
+        return false;
     }
+
+    const correctCount = candidate.options.filter(
+        (opt) => opt.isCorrect === true
+    ).length;
+
+    return correctCount === 1;
 }
 
-// Requests one multiple-choice question for the selected lecture topic.
+async function fetchTopics(transcript: string): Promise<QuizTopicsResponse> {
+    const cleaned = transcript.trim();
+
+    if (cleaned.length < MIN_NONEMPTY_LENGTH) {
+        return { ok: true, enoughContent: false };
+    }
+
+    const result = await OpenAiClient.createChatCompletion({
+        model: MODEL,
+        messages: buildQuizTopicsMessages(cleaned),
+        temperature: 0.3,
+        max_tokens: 300,
+        response_format: { type: "json_object" },
+    });
+
+    if (!result.ok) {
+        return {
+            ok: false,
+            error: describeErrorKind(
+                result.errorKind,
+                result.error || "Error receiving quiz topics."
+            ),
+        };
+    }
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(result.data);
+    } catch {
+        return { ok: false, error: "Topic mapping returned invalid JSON." };
+    }
+
+    const rawTopics = (parsed as { topics?: unknown }).topics;
+    const topics = Array.isArray(rawTopics)
+        ? rawTopics
+            .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+            .map((t) => t.trim())
+            .slice(0, 4)
+        : [];
+
+    if (topics.length === 0) {
+        return { ok: true, enoughContent: false };
+    }
+
+    return { ok: true, enoughContent: true, topics };
+}
+
 async function fetchQuestion(
     transcript: string,
     topic: string
 ): Promise<QuizQuestionResponse> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-        () => controller.abort(),
-        REQUEST_TIMEOUT_MS
-    );
+    const cleaned = transcript.trim();
+    const cleanedTopic = topic.trim();
 
-    try {
-        const response = await fetch(QUIZ_QUESTION_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ transcript, topic }),
-            signal: controller.signal,
-        });
+    if (cleaned.length < MIN_NONEMPTY_LENGTH) {
+        return { ok: true, enoughContent: false };
+    }
 
-        clearTimeout(timeoutId);
+    if (!cleanedTopic) {
+        return { ok: false, error: "No topic provided for question generation." };
+    }
 
-        if (!response.ok) {
-            throw new Error(
-                `Server returned ${response.status}: ${response.statusText}`
-            );
-        }
+    const result = await OpenAiClient.createChatCompletion({
+        model: MODEL,
+        messages: buildQuizQuestionMessages(cleanedTopic, cleaned),
+        temperature: 0.6,
+        max_tokens: 800,
+        response_format: { type: "json_object" },
+    });
 
-        const data: {
-            success: boolean;
-            enoughContent?: boolean;
-            question?: string;
-            options?: QuizOption[];
-            error?: string;
-        } = await response.json();
-
-        if (!data.success) {
-            return {
-                ok: false,
-                error: data.error || "Error receiving a quiz question.",
-            };
-        }
-
-        if (data.enoughContent === false) {
-            return {
-                ok: true,
-                enoughContent: false,
-            };
-        }
-
-        return {
-            ok: true,
-            enoughContent: true,
-            question: data.question || "",
-            options: Array.isArray(data.options) ? data.options : [],
-        };
-    } catch (err) {
-        clearTimeout(timeoutId);
-        console.error("Error fetching quiz question:", err);
-
+    if (!result.ok) {
         return {
             ok: false,
-            error: describeError(err),
+            error: describeErrorKind(
+                result.errorKind,
+                result.error || "Error receiving a quiz question."
+            ),
         };
     }
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(result.data);
+    } catch {
+        return { ok: false, error: "Question generation returned invalid JSON." };
+    }
+
+    if (!isValidQuizQuestion(parsed)) {
+        return {
+            ok: false,
+            error: "Question generation returned a malformed question.",
+        };
+    }
+
+    return {
+        ok: true,
+        enoughContent: true,
+        question: parsed.question.trim(),
+        options: parsed.options.map((opt) => ({
+            text: opt.text.trim(),
+            isCorrect: opt.isCorrect,
+            explanation: opt.explanation.trim(),
+        })),
+    };
 }
 
 export const QuizClient = {

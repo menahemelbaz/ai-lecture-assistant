@@ -523,8 +523,8 @@ window.Controller = {
             return;
           }
 
-          if (response?.ok) {
-            console.log(response.info || "PDF download started");
+          if (response?.ok && response.html) {
+            Controller.printSummaryHtml(response.html);
           } else {
             alert(response?.error || "Error generating summary.");
           }
@@ -537,6 +537,43 @@ window.Controller = {
       summaryButton.title = "Lecture Summary";
       alert("Error generating summary.");
     }
+  },
+
+  // Prints the summary through a hidden, isolated iframe so the host page's
+  // styles never affect the output and no popup can be blocked. The iframe is
+  // removed once the print dialog is dismissed.
+  printSummaryHtml(html: string): void {
+    const iframe = document.createElement("iframe");
+
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.setAttribute("aria-hidden", "true");
+
+    iframe.onload = () => {
+      const frameWindow = iframe.contentWindow;
+
+      if (!frameWindow) {
+        iframe.remove();
+        return;
+      }
+
+      frameWindow.focus();
+      frameWindow.print();
+
+      // Remove the iframe after the print dialog is handled.
+      const cleanup = () => iframe.remove();
+      frameWindow.addEventListener("afterprint", cleanup);
+
+      // Fallback removal in case afterprint does not fire.
+      setTimeout(cleanup, 60000);
+    };
+
+    iframe.srcdoc = html;
+    document.body.appendChild(iframe);
   },
 
   onClick(): void {
