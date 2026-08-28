@@ -6,21 +6,21 @@ AI Lecture Assistant
 
 AI Lecture Assistant is a Chrome extension designed to help students study recorded lectures more efficiently.
 
-It captures lecture audio while the video plays, builds a transcript, and uses the lecture content to provide summaries, contextual AI chat, and practice questions without leaving the lecture page.
+It captures lecture audio while the user watches a recorded video, builds a transcript, and uses the lecture content to support review and practice.
+
+The extension provides tools for generating printable lecture summaries, asking questions based on the active transcript, and practicing lecture topics with immediate feedback.
 
 Features
-
-Playback-aware lecture transcription
 
 Printable lecture summary generation
 
 AI chat based on the active lecture transcript
 
-Topic-based practice questions with answer explanations
+Topic-based practice questions with feedback and explanations
 
 Configuration
 
-The extension settings page allows users to add, update, or remove their personal OpenAI API key. The key is stored locally in Chrome extension storage and is used for direct AI requests.
+The extension settings page allows users to add, update, or remove their personal OpenAI API key. The key is stored locally in Chrome extension storage and is used for direct requests to OpenAI.
 
 <img src="assets/api-key-settings.png" alt="OpenAI API Key Settings" width="800">
 
@@ -46,7 +46,7 @@ The extension generates a formatted lecture summary that can be printed or saved
 
 Lecture-Based AI Chat
 
-The chat interface allows students to ask questions based on the transcript of the active lecture.
+The chat interface allows students to ask questions based on the accumulated transcript of the active lecture.
 
 <img src="assets/chat-panel.png" alt="Lecture-Based AI Chat" width="700">
 
@@ -59,8 +59,6 @@ The practice interface generates questions from lecture topics and provides imme
 Tech Stack
 
 TypeScript
-
-Chrome Extension Manifest V3
 
 Chrome tabCapture
 
