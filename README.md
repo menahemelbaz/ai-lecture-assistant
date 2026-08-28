@@ -16,6 +16,12 @@ The extension works while the user watches a recorded lecture and uses the lectu
 * AI chat based on the lecture transcript
 * Lecture topic practice
 
+## Configuration
+
+The extension settings page allows users to enter and manage their personal OpenAI API key.
+
+<img src="assets/api-key-settings.png" alt="OpenAI API Key Settings" width="800">
+
 ## Screenshots
 
 ### Main Extension Button
@@ -41,6 +47,12 @@ The extension allows the user to generate a lecture summary while watching the r
 The chat interface allows students to ask questions about the lecture while watching, based on the accumulated lecture transcript.
 
 <img src="assets/chat-panel.png" alt="Lecture-Based AI Chat" width="700">
+
+### Practice Questions
+
+The practice interface generates lecture-based questions, allowing students to test their understanding and receive immediate feedback with explanations.
+
+<img src="assets/practice-questions.png" alt="Lecture Practice Questions" width="700">
 
 ## Tech Stack
 
