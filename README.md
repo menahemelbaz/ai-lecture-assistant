@@ -10,6 +10,8 @@ It captures lecture audio while the user watches a recorded video, builds a tran
 
 The extension provides tools for generating printable lecture summaries, asking questions based on the active transcript, and practicing lecture topics with immediate feedback.
 
+This repository is a project showcase only. The source code is kept private.
+
 Features
 
 Printable lecture summary generation
