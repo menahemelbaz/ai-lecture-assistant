@@ -10,8 +10,6 @@ It captures lecture audio while the user watches a recorded video, builds a tran
 
 The extension provides tools for generating printable lecture summaries, asking questions based on the active transcript, and practicing lecture topics with immediate feedback.
 
-> This repository is a project showcase only. The source code is kept private.
-
 ## Features
 
 * Printable lecture summary generation
@@ -75,7 +73,3 @@ The project is divided into two main parts:
 * **Node.js Server** - Handles audio transcription and streams transcript updates back to the extension through WebSocket.
 
 The codebase is organized into modular components for content scripts, background logic, offscreen audio processing, transcript storage, and AI-powered learning features.
-
-## Status
-
-This project is a working prototype and personal learning project focused on Chrome extension development, browser audio capture, real-time communication, and AI-assisted learning.
