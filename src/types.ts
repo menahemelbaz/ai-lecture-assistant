@@ -12,6 +12,8 @@ type ExtensionMessageType =
   | "GENERATE_SUMMARY"
   | "QUIZ_TOPICS"
   | "QUIZ_QUESTION"
+  | "TRANSCRIPT_CHUNK"
+  | "GET_API_KEY"
   | "START_TAB_CAPTURE_INTERNAL"
   | "PAUSE_TAB_CAPTURE_INTERNAL"
   | "RESUME_TAB_CAPTURE_INTERNAL"
@@ -58,6 +60,7 @@ interface ExtensionMessage {
   question?: string;
   answer?: string;
   topic?: string;
+  text?: string;
   lectureContext?: LectureContext;
   confirmNewSession?: boolean;
 }
@@ -82,6 +85,14 @@ interface SummaryResponse {
 // Response returned by internal offscreen capture operations.
 interface InternalCaptureResponse {
   ok: boolean;
+  error?: string;
+}
+
+// Response carrying the stored OpenAI API key to a context without direct
+// storage access (the offscreen document).
+interface ApiKeyResponse {
+  ok: boolean;
+  apiKey?: string | null;
   error?: string;
 }
 

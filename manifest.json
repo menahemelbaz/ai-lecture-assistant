@@ -17,8 +17,7 @@
     "activeTab"
   ],
   "host_permissions": [
-    "http://localhost:3000/*",
-    "ws://localhost:3001/*",
+    "https://api.openai.com/*",
     "<all_urls>"
   ],
   "background": {
@@ -34,7 +33,6 @@
       "128": "images/icon128.png"
     }
   },
-  "options_page": "dist/options/options.html",
   "content_scripts": [
     {
       "matches": [

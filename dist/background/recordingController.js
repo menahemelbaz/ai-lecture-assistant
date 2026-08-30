@@ -1,6 +1,5 @@
 import { TranscriptStore } from "./transcriptStore.js";
 import { CaptureStore } from "./captureStore.js";
-import { connectWebSocket, disconnectWebSocket } from "./websocketClient.js";
 import { TabCaptureController } from "./tabCaptureController.js";
 // Serializes recording state changes so pause, resume, and stop cannot overlap.
 let recordingOperationQueue = Promise.resolve();
@@ -8,13 +7,6 @@ function runRecordingOperation(operation) {
     const result = recordingOperationQueue.then(operation, operation);
     recordingOperationQueue = result.then(() => undefined, () => undefined);
     return result;
-}
-// Stores incoming transcript chunks under the currently active lecture session.
-function connectTranscriptWebSocket() {
-    connectWebSocket(async (text) => {
-        const sessionId = TranscriptStore.getCurrentSessionId() ?? undefined;
-        await TranscriptStore.appendTranscript(text, sessionId);
-    });
 }
 // Checks the persisted capture state so the result survives worker restarts.
 async function isActiveRecordingTab(tabId) {
@@ -33,10 +25,9 @@ async function restoreCaptureState() {
         await CaptureStore.clearCaptureState();
         return;
     }
-    // Reconnect the transcript socket when recording survived the worker restart.
-    if (capture.status === "recording") {
-        connectTranscriptWebSocket();
-    }
+    // The offscreen document survives the worker restart and keeps sending
+    // TRANSCRIPT_CHUNK messages, which the background listener handles. No
+    // transcript connection needs to be re-established here.
 }
 // Arms tab capture while leaving audio recording paused until video playback.
 async function beginRecordingForTab(tabId) {
@@ -53,7 +44,6 @@ async function beginRecordingForTab(tabId) {
             error: "Recording already active on another tab",
         };
     }
-    connectTranscriptWebSocket();
     try {
         await TabCaptureController.startTabCapturePath(tabId);
         await CaptureStore.setCaptureState({
@@ -106,10 +96,10 @@ function resumeRecordingForTab(tabId, lectureContext, confirmNewSession = false)
                     error: "Starting a new session will clear the current transcript",
                 };
             }
-            // Disconnect before switching sessions so previous lecture chunks are dropped.
-            disconnectWebSocket();
+            // Switching sessions: reset the transcript for the new lecture. Chunks
+            // from the previous session are rejected by appendTranscript's session
+            // id guard, so no socket teardown is needed.
             await TranscriptStore.startNewTranscriptSession(tabId, lectureContext);
-            connectTranscriptWebSocket();
         }
         if (capture.status === "recording") {
             return {
@@ -118,7 +108,6 @@ function resumeRecordingForTab(tabId, lectureContext, confirmNewSession = false)
             };
         }
         try {
-            connectTranscriptWebSocket();
             await TabCaptureController.resumeTabCapturePath();
             await CaptureStore.updateCaptureStatus("recording");
             return {
@@ -186,7 +175,6 @@ function endRecording() {
         }
         try {
             await TabCaptureController.stopTabCapturePath();
-            disconnectWebSocket();
             await CaptureStore.clearCaptureState();
             await TranscriptStore.clearSession();
             return {
@@ -196,7 +184,6 @@ function endRecording() {
         }
         catch (error) {
             // Clear local state even when stopping fails to avoid a stale recording state.
-            disconnectWebSocket();
             await CaptureStore.clearCaptureState();
             await TranscriptStore.clearSession();
             const message = error instanceof Error

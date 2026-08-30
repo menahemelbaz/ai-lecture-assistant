@@ -3,8 +3,9 @@ import { SummaryClient } from "./background/summaryClient.js";
 import { AskLectureClient } from "./background/askLectureClient.js";
 import { QuizClient } from "./background/quizClient.js";
 import { RecordingController } from "./background/recordingController.js";
+import { ApiKeyStore } from "./background/apiKeyStore.js";
 
-// Restore the transcript before capture resumes so incoming WebSocket chunks
+// Restore the transcript before capture resumes so incoming transcript chunks
 // are appended only after the persisted state is available.
 TranscriptStore.loadTranscriptState()
   .then(() => RecordingController.restoreCaptureState())
@@ -82,7 +83,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       armResponse.error === "No video on page";
 
     if (noVideo) {
-      // Avoid retaining offscreen and WebSocket resources without a video.
+      // Avoid retaining offscreen resources without a video.
       await RecordingController.endRecording();
     }
   } catch (error) {
@@ -117,7 +118,7 @@ async function getTranscriptForTab(
   return await TranscriptStore.getFullTranscript();
 }
 
-// Routes messages received from content scripts.
+// Routes messages received from content scripts and the offscreen document.
 chrome.runtime.onMessage.addListener(
   (
     msg: ExtensionMessage,
@@ -131,6 +132,7 @@ chrome.runtime.onMessage.addListener(
         | QuizTopicsResponse
         | QuizQuestionResponse
         | InternalCaptureResponse
+        | ApiKeyResponse
     ) => void
   ) => {
     if (msg.target === "offscreen") {
@@ -149,6 +151,14 @@ chrome.runtime.onMessage.addListener(
         const active = await RecordingController.isActiveRecordingTab(tabId);
 
         return { ok: true, active };
+      }
+
+      // The offscreen document has no direct chrome.storage access, so it asks
+      // the background for the stored key. The key stays within the extension.
+      if (msg && msg.type === "GET_API_KEY") {
+        const apiKey = await ApiKeyStore.getApiKey();
+
+        return { ok: true, apiKey };
       }
 
       if (msg && msg.type === "START_RECORDING") {
@@ -179,6 +189,23 @@ chrome.runtime.onMessage.addListener(
 
       if (msg && msg.type === "STOP_RECORDING") {
         return await RecordingController.pauseRecording();
+      }
+
+      // Transcript chunk sent from the offscreen document after a direct
+      // Whisper transcription. Attach the active session id so chunks from an
+      // old session are rejected.
+      if (msg && msg.type === "TRANSCRIPT_CHUNK") {
+        const text = msg.text?.trim();
+
+        if (!text) {
+          return { ok: true };
+        }
+
+        const sessionId = TranscriptStore.getCurrentSessionId() ?? undefined;
+
+        await TranscriptStore.appendTranscript(text, sessionId);
+
+        return { ok: true };
       }
 
       if (msg && msg.type === "ASK_LECTURE") {

@@ -2,44 +2,70 @@ import {
     buildWavBuffer,
     type BufferedAudioPacket,
 } from "./wavEncoder.js";
+import { OpenAiClient } from "../config/openaiClient.js";
 
-const SERVER_STREAM_URL = "http://localhost:3000/stream";
+const WHISPER_MODEL = "whisper-1";
+const TRANSCRIPTION_LANGUAGE = "he";
 
-// Serializes uploads to preserve the original order of the audio packets.
+// Serializes transcription so the packets stay in their original order. Each
+// packet waits for the previous one, so Whisper calls never overlap and the
+// resulting text reaches the background in capture order.
 let uploadQueue: Promise<void> = Promise.resolve();
 
-// Converts and uploads a buffered audio packet to the transcription server.
-async function uploadAudioPacket(
+// Transcribes one buffered audio packet directly with OpenAI Whisper and sends
+// the resulting text to the background service worker.
+async function transcribePacket(
     packet: BufferedAudioPacket,
     sampleRate: number
 ): Promise<void> {
     const wavBuffer = buildWavBuffer(packet, sampleRate);
+    const audioBlob = new Blob([wavBuffer], { type: "audio/wav" });
 
-    const response = await fetch(SERVER_STREAM_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "audio/wav",
-        },
-        body: wavBuffer,
+    const result = await OpenAiClient.transcribeAudio(audioBlob, {
+        model: WHISPER_MODEL,
+        language: TRANSCRIPTION_LANGUAGE,
     });
 
-    if (!response.ok) {
-        throw new Error(
-            `Server returned ${response.status}: ${response.statusText}`
+    if (!result.ok) {
+        // Step 4b will forward result.errorKind to the user. For now, surface it
+        // in the console without breaking the capture loop.
+        console.error(
+            `Transcription failed (${result.errorKind}): ${result.error}`
         );
+        return;
     }
+
+    const text = result.data.trim();
+
+    if (!text) {
+        return;
+    }
+
+    // Send the transcript chunk to the background, which attaches the active
+    // session id and appends it to the transcript store.
+    chrome.runtime.sendMessage(
+        {
+            type: "TRANSCRIPT_CHUNK",
+            text,
+        },
+        () => {
+            // Read lastError to avoid an unchecked runtime warning if the
+            // background is momentarily asleep.
+            void chrome.runtime.lastError;
+        }
+    );
 }
 
-// Queues audio packets so they are uploaded sequentially and remain ordered.
+// Queues audio packets so they are transcribed sequentially and remain ordered.
 function queueUpload(packet: BufferedAudioPacket, sampleRate: number): void {
     uploadQueue = uploadQueue
-        .then(() => uploadAudioPacket(packet, sampleRate))
+        .then(() => transcribePacket(packet, sampleRate))
         .catch((error: unknown) => {
-            console.error("Offscreen upload error:", error);
+            console.error("Offscreen transcription error:", error);
         });
 }
 
-// Waits for all currently queued uploads to complete.
+// Waits for all currently queued transcriptions to complete.
 async function waitForPendingUploads(): Promise<void> {
     await uploadQueue;
 }

@@ -1,23 +1,50 @@
 // Centralized read access to the user's OpenAI API key.
 //
-// The key is written by the options page (src/options/options.ts) under the
-// same storage key. Both the background service worker and the offscreen
-// document read the key through this module so the storage access lives in one
-// place instead of being duplicated per context.
+// The key is written by the options page under this storage key. The background
+// service worker has direct access to chrome.storage; the offscreen document
+// does not, so from there the key is requested from the background over runtime
+// messaging. getApiKey() selects the right path automatically.
 
 const API_KEY_STORAGE_KEY = "openaiApiKey";
 
-// Reads the saved OpenAI key, or null when the user has not stored one yet.
+function normalizeKey(value: unknown): string | null {
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+// Direct read, used in contexts that have chrome.storage (the service worker).
+async function readFromStorage(): Promise<string | null> {
+    const result = await chrome.storage.local.get(API_KEY_STORAGE_KEY);
+    return normalizeKey(result[API_KEY_STORAGE_KEY]);
+}
+
+// Fallback for the offscreen document, which has no direct chrome.storage access.
+function requestFromBackground(): Promise<string | null> {
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+            { type: "GET_API_KEY" },
+            (response: ApiKeyResponse | undefined) => {
+                if (chrome.runtime.lastError) {
+                    console.error(
+                        "Error requesting API key from background:",
+                        chrome.runtime.lastError.message
+                    );
+                    resolve(null);
+                    return;
+                }
+
+                resolve(normalizeKey(response?.apiKey));
+            }
+        );
+    });
+}
+
 async function getApiKey(): Promise<string | null> {
     try {
-        const result = await chrome.storage.local.get(API_KEY_STORAGE_KEY);
-        const savedKey = result[API_KEY_STORAGE_KEY];
-
-        if (typeof savedKey === "string" && savedKey.trim()) {
-            return savedKey.trim();
+        if (chrome.storage?.local) {
+            return await readFromStorage();
         }
 
-        return null;
+        return await requestFromBackground();
     } catch (err) {
         console.error("Error reading the OpenAI API key:", err);
         return null;
