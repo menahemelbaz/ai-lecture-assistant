@@ -31,13 +31,14 @@ interface Window {
       chosen: QuizOption
     ): void;
     renderMathInto(target: HTMLElement, raw: string): void;
+    renderMathInHtml(html: string): string;
     addChatMessage(
       text: string,
       sender: "user" | "assistant"
     ): HTMLDivElement | null;
     sendChatMessage(): void;
     textSummary(summaryButton: HTMLButtonElement): Promise<void>;
-    printSummaryHtml(html: string): void;
+    printSummaryHtml(html: string): Promise<void>;
     onClick(): void;
   };
 

@@ -72,7 +72,7 @@ window.Buttons = {
     const summaryButton: HTMLButtonElement = Buttons.createButton(
       "fa-solid fa-file-lines",
       "3x",
-      "buttons",
+      "lecture-action-button",
       "summary",
       "Summarize Lecture"
     );
@@ -80,7 +80,7 @@ window.Buttons = {
     const askButton: HTMLButtonElement = Buttons.createButton(
       "fa-solid fa-comment",
       "3x",
-      "buttons",
+      "lecture-action-button",
       "questions",
       "Ask about the lecture"
     );
@@ -88,7 +88,7 @@ window.Buttons = {
     const quizButton: HTMLButtonElement = Buttons.createButton(
       "fa-solid fa-list-check",
       "3x",
-      "buttons",
+      "lecture-action-button",
       "quiz",
       "Practice Lecture Topics"
     );

@@ -47,9 +47,9 @@ window.Buttons = {
         // Groups the secondary actions so the overlay can reveal them together.
         const container = document.createElement("div");
         container.id = "secondary-buttons";
-        const summaryButton = Buttons.createButton("fa-solid fa-file-lines", "3x", "buttons", "summary", "Summarize Lecture");
-        const askButton = Buttons.createButton("fa-solid fa-comment", "3x", "buttons", "questions", "Ask about the lecture");
-        const quizButton = Buttons.createButton("fa-solid fa-list-check", "3x", "buttons", "quiz", "Practice Lecture Topics");
+        const summaryButton = Buttons.createButton("fa-solid fa-file-lines", "3x", "lecture-action-button", "summary", "Summarize Lecture");
+        const askButton = Buttons.createButton("fa-solid fa-comment", "3x", "lecture-action-button", "questions", "Ask about the lecture");
+        const quizButton = Buttons.createButton("fa-solid fa-list-check", "3x", "lecture-action-button", "quiz", "Practice Lecture Topics");
         container.appendChild(summaryButton);
         container.appendChild(askButton);
         container.appendChild(quizButton);

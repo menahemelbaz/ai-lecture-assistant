@@ -58,6 +58,7 @@
         "images/*.png",
         "style/overlay.css",
         "dist/content/*.js",
+        "vendor/katex/katex.min.css",
         "vendor/katex/fonts/*"
       ],
       "matches": [

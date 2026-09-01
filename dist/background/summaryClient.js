@@ -11,7 +11,7 @@ async function generateSummaryHtml(fullTranscript) {
         model: MODEL,
         messages: buildSummaryMessages(fullTranscript),
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 4000,
     });
     if (!result.ok) {
         return {

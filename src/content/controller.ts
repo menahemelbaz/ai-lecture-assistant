@@ -449,6 +449,53 @@ window.Controller = {
     }
   },
 
+  // Renders every math expression inside an HTML string to KaTeX markup, for the
+  // printable summary. The summary HTML was escaped upstream, so the characters
+  // inside each expression are unescaped before being handed to KaTeX (which
+  // needs raw <, >, & to parse LaTeX correctly).
+  renderMathInHtml(html: string): string {
+    const unescape = (s: string): string =>
+      s
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+        .replace(/&amp;/g, "&");
+
+    const pattern =
+      /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^$\n]+?\$|\\\([\s\S]+?\\\))/g;
+
+    return html.replace(pattern, (match) => {
+      let expression: string | null = null;
+      let isDisplay = false;
+
+      if (match.startsWith("$$") && match.endsWith("$$")) {
+        expression = match.slice(2, -2);
+        isDisplay = true;
+      } else if (match.startsWith("\\[") && match.endsWith("\\]")) {
+        expression = match.slice(2, -2);
+        isDisplay = true;
+      } else if (match.startsWith("\\(") && match.endsWith("\\)")) {
+        expression = match.slice(2, -2);
+      } else if (match.startsWith("$") && match.endsWith("$")) {
+        expression = match.slice(1, -1);
+      }
+
+      if (expression === null) {
+        return match;
+      }
+
+      try {
+        return katex.renderToString(unescape(expression), {
+          displayMode: isDisplay,
+          throwOnError: false,
+        });
+      } catch {
+        return match;
+      }
+    });
+  },
+
   addChatMessage(
     text: string,
     sender: "user" | "assistant"
@@ -594,7 +641,38 @@ window.Controller = {
     }
   },
 
-  printSummaryHtml(html: string): void {
+  // Renders the summary's math, injects the KaTeX stylesheet (whose relative
+  // font URLs resolve against the extension origin), waits for the fonts to
+  // load, then prints from a hidden iframe.
+  // Renders the summary's math, inlines the KaTeX stylesheet (fetched from the
+  // extension and rewritten to absolute font URLs), waits for fonts, and prints.
+  // The stylesheet is inlined rather than linked because an <iframe srcdoc> has
+  // a null origin that blocks loading external stylesheets.
+  async printSummaryHtml(html: string): Promise<void> {
+    const renderedBody = Controller.renderMathInHtml(html);
+
+    const katexCssUrl = chrome.runtime.getURL("vendor/katex/katex.min.css");
+    const fontsBaseUrl = chrome.runtime.getURL("vendor/katex/fonts/");
+
+    let styleTag = "";
+    try {
+      const cssResponse = await fetch(katexCssUrl);
+      let cssText = await cssResponse.text();
+
+      // KaTeX's CSS references fonts relatively (url(fonts/...)). Rewrite those
+      // to absolute extension URLs so they resolve from the srcdoc iframe.
+      cssText = cssText.replace(
+        /url\((['"]?)fonts\//g,
+        `url($1${fontsBaseUrl}`
+      );
+
+      styleTag = `<style>${cssText}</style>`;
+    } catch (err) {
+      console.error("Failed to load KaTeX CSS for the summary:", err);
+    }
+
+    const withKatex = renderedBody.replace("</head>", `${styleTag}\n</head>`);
+
     const iframe = document.createElement("iframe");
 
     iframe.style.position = "fixed";
@@ -613,8 +691,23 @@ window.Controller = {
         return;
       }
 
-      frameWindow.focus();
-      frameWindow.print();
+      let printed = false;
+      const printOnce = () => {
+        if (printed) {
+          return;
+        }
+        printed = true;
+        frameWindow.focus();
+        frameWindow.print();
+      };
+
+      const frameDoc = frameWindow.document;
+
+      if (frameDoc.fonts && frameDoc.fonts.ready) {
+        frameDoc.fonts.ready.then(printOnce);
+      }
+
+      setTimeout(printOnce, 1500);
 
       const cleanup = () => iframe.remove();
       frameWindow.addEventListener("afterprint", cleanup);
@@ -622,7 +715,7 @@ window.Controller = {
       setTimeout(cleanup, 60000);
     };
 
-    iframe.srcdoc = html;
+    iframe.srcdoc = withKatex;
     document.body.appendChild(iframe);
   },
 

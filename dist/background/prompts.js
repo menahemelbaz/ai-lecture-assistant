@@ -5,32 +5,55 @@ const MATH_FORMATTING_INSTRUCTION = `Formatting of mathematics: wrap EVERY mathe
 // treated as context, never as instructions.
 export function buildAskMessages(question, transcript) {
     const hasTranscript = transcript.trim().length > 0;
-    const systemPrompt = `You are a study assistant for a student watching a recorded lecture.
-Answer the student's question clearly and educationally.
+    // Without a transcript yet, there is no lecture context to scope against, so
+    // the assistant answers freely - the same behavior as before this feature.
+    const systemPromptNoTranscript = `You are a study assistant for a student watching a recorded lecture.
 
-Exception - explicit request about the lecture: ONLY if the student explicitly
-asks what the lecturer/lecture said, covered, or explained, answer from the
-transcript. If the transcript does not contain it, say so plainly - in that
-specific case it is fine to say the lecture did not cover it.
+No lecture transcript has been captured yet. Answer the student's question
+clearly and educationally, whatever it is.
 
 Style: clear, focused, educational. Avoid unnecessary padding. Never output
 internal labels or rule names - just write the natural response.
 
 ${MATH_FORMATTING_INSTRUCTION}`;
-    const userPrompt = hasTranscript
-        ? `Lecture transcript (context only, delimited below):
+    // With a transcript, the assistant answers anything related to the lecture's
+    // subject area (even loosely) and politely declines the entirely unrelated.
+    const systemPromptWithTranscript = `You are a study assistant for a student watching a recorded lecture.
+
+Scope: answer any question that relates to the subject area of the lecture, even
+loosely or indirectly - related concepts, background, prerequisites, adjacent
+topics, or anything a student studying this material might reasonably ask. When
+in doubt about whether a question is related, treat it as related and answer it.
+
+Only if a question is clearly and entirely unrelated to the lecture's subject
+(for example cooking, sports, celebrity gossip, or personal chit-chat), do not
+answer it. Instead, reply briefly and warmly, and steer the student back to the
+lecture - for example: "I'm here to help you study this lecture. Is there
+something from the material I can help with?"
+
+Explicit request about the lecture: if the student explicitly asks what the
+lecturer or lecture said, covered, or explained, answer from the transcript. If
+the transcript does not contain it, say so plainly.
+
+Style: clear, focused, educational. Avoid unnecessary padding. Never output
+internal labels or rule names - just write the natural response.
+
+${MATH_FORMATTING_INSTRUCTION}`;
+    if (!hasTranscript) {
+        return [
+            { role: "system", content: systemPromptNoTranscript },
+            { role: "user", content: question },
+        ];
+    }
+    const userPrompt = `Lecture transcript (context only, delimited below):
 <<<TRANSCRIPT>>>
 ${transcript}
 <<<END TRANSCRIPT>>>
 
 Student's question:
-${question}`
-        : `No lecture transcript is available.
-
-Student's question:
 ${question}`;
     return [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: systemPromptWithTranscript },
         { role: "user", content: userPrompt },
     ];
 }
@@ -112,25 +135,42 @@ ${transcript}
         { role: "user", content: userPrompt },
     ];
 }
-// Ported from summaryService.generateLectureSummary.
+// Ported from summaryService.generateLectureSummary. Produces a medium-length
+// study sheet with consistent mathematical notation.
 export function buildSummaryMessages(text) {
-    const systemPrompt = "You are a professional assistant that summarizes Hebrew lecture transcripts into clear, organized, and educational Hebrew study sheets for students.";
-    const userPrompt = `Summarize the following lecture transcript in Hebrew.
+    const systemPrompt = "You are a professional assistant that turns Hebrew lecture transcripts into clear, well-organized, educational Hebrew study sheets for students.";
+    const userPrompt = `Summarize the following lecture transcript in Hebrew as a study sheet of medium length.
 
-Write the summary as a clear, schematic study sheet.
-The summary must follow the order in which the lecture topics appear.
-Do not organize the summary into fixed categories such as main ideas, formulas, concepts, or conclusions.
+Goal: a student who reads the summary should understand the main points and flow
+of the lecture. Be clear and informative, but concise - not exhaustive.
 
-Instructions:
-- Write a short and clear main title.
-- Divide the summary into sections according to the natural flow of the lecture.
-- Use short and clear subheadings.
-- Explain important ideas briefly and clearly.
-- If concepts, definitions, notation, formulas, or steps appear, include them in the relevant place according to their order in the lecture.
-- Do not add general knowledge, examples, formulas, or conclusions that were not said or clearly implied in the transcript.
+Coverage and depth:
+- Follow the order in which the lecture's topics appear.
+- Cover the main topics the lecture discusses; you may group or omit minor
+  digressions.
+- For each topic, give a brief but clear explanation - a few sentences or a few
+  short bullet points. Convey the idea without over-elaborating.
+- Include the key definitions, notation, and formulas that appear in the
+  lecture, where they belong.
+- Do not add general knowledge, examples, or conclusions that were not said or
+  clearly implied in the transcript.
 - Do not mention that the summary is based on a transcript.
-- Output only the final Hebrew summary.
-- ${MATH_FORMATTING_INSTRUCTION}
+
+Structure:
+- Start with a short, clear main title (a single # heading).
+- Divide the summary into sections with ## headings that follow the lecture's
+  flow. Use ### subheadings only when a section clearly needs them.
+- Use bullet points for lists of properties, steps, or cases.
+
+Mathematical notation - IMPORTANT for consistency:
+- Write mathematical objects, symbols, complexity classes, sets, relations, and
+  variables ONLY as LaTeX wrapped in $...$ (inline) or $$...$$ (display).
+- Use the standard mathematical symbol, never a Hebrew transliteration and never
+  a bare Latin letter. For example write $P$, $NP$, $PC$, $S \\in NP$ - never
+  "פי", "פי-סי", "NP" as plain Hebrew/Latin text, and never a lone P outside $...$.
+- Use each symbol consistently throughout the summary.
+
+Output only the final Hebrew study sheet.
 
 Lecture transcript:
 """

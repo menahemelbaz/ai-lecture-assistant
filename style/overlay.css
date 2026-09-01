@@ -5,7 +5,8 @@
   position: fixed;
   right: 50px;
   bottom: 30px;
-  z-index: 9999;
+  z-index: 2147483647;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -78,7 +79,7 @@
 }
 
 /* Shared appearance for the secondary action buttons. */
-.buttons {
+.lecture-action-button {
   padding: 16px;
   border: none;
   border-radius: 50%;
@@ -93,7 +94,7 @@
 }
 
 /* Provides clear visual feedback for interactive secondary actions. */
-.buttons:hover {
+.lecture-action-button:hover {
   background: linear-gradient(135deg, #6a9bfa 0%, #4d86f8 100%);
   transform: scale(1.1);
   filter: brightness(1.03);
@@ -102,7 +103,7 @@
     0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
-.buttons i {
+.lecture-action-button i {
   font-size: 33px;
 }
 
@@ -113,7 +114,7 @@
   position: fixed;
   right: 170px;
   bottom: 35px;
-  z-index: 9999;
+  z-index: 2147483647;
   display: none;
   flex-direction: column;
   width: 390px;
