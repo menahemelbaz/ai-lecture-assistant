@@ -18,6 +18,38 @@ chrome.runtime.onInstalled.addListener((details) => {
         chrome.runtime.openOptionsPage();
     }
 });
+// Maps a transcription error kind to a short, user-facing message.
+function describeCaptureError(errorKind) {
+    switch (errorKind) {
+        case "missing_key":
+            return "Transcription paused: no API key set. Open the extension options to add your OpenAI key.";
+        case "invalid_key":
+            return "Transcription paused: your API key was rejected. Check it in the extension options.";
+        case "quota":
+            return "Transcription paused: your OpenAI quota is exhausted. Please check your OpenAI billing.";
+        default:
+            return "Transcription paused due to a problem reaching OpenAI. Please try again.";
+    }
+}
+// Remembers the last error already shown to the user so the same failure is not
+// repeated on every 5-second chunk. Reset when a chunk succeeds.
+let lastShownErrorKind = null;
+// Sends a capture-error banner to the tab that owns the active session.
+async function notifyActiveTabOfError(errorKind) {
+    const activeTabId = TranscriptStore.getActiveTabId();
+    if (activeTabId === null) {
+        return;
+    }
+    try {
+        await chrome.tabs.sendMessage(activeTabId, {
+            type: "CAPTURE_ERROR",
+            text: describeCaptureError(errorKind),
+        });
+    }
+    catch {
+        // The content script may not be reachable; the console log remains.
+    }
+}
 chrome.action.onClicked.addListener(async (tab) => {
     const tabId = tab.id;
     if (tabId === undefined) {
@@ -41,6 +73,8 @@ chrome.action.onClicked.addListener(async (tab) => {
                 : "Could not notify the content script";
             console.warn("Recording stopped, but the content script could not be notified:", message);
         }
+        // Clear any error state so the next session starts clean.
+        lastShownErrorKind = null;
         return;
     }
     // A first click arms capture before requesting the content-script UI.
@@ -104,6 +138,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             const apiKey = await ApiKeyStore.getApiKey();
             return { ok: true, apiKey };
         }
+        // Opens the extension options page on behalf of the content script,
+        // which cannot call openOptionsPage() directly.
+        if (msg && msg.type === "OPEN_OPTIONS") {
+            chrome.runtime.openOptionsPage();
+            return { ok: true };
+        }
         if (msg && msg.type === "START_RECORDING") {
             const tabId = sender.tab?.id;
             if (tabId === undefined) {
@@ -119,14 +159,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                     error: "Lecture context was not provided",
                 };
             }
+            lastShownErrorKind = null;
             return await RecordingController.resumeRecordingForTab(tabId, lectureContext, msg.confirmNewSession === true);
         }
         if (msg && msg.type === "STOP_RECORDING") {
             return await RecordingController.pauseRecording();
         }
-        // Transcript chunk sent from the offscreen document after a direct
-        // Whisper transcription. Attach the active session id so chunks from an
-        // old session are rejected.
+        // Transcript chunk from the offscreen document. Attach the active session
+        // id so chunks from an old session are rejected. A successful chunk also
+        // clears the error state so a future failure will be shown again.
         if (msg && msg.type === "TRANSCRIPT_CHUNK") {
             const text = msg.text?.trim();
             if (!text) {
@@ -134,6 +175,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             }
             const sessionId = TranscriptStore.getCurrentSessionId() ?? undefined;
             await TranscriptStore.appendTranscript(text, sessionId);
+            return { ok: true };
+        }
+        // Transcription failed in the offscreen document. Show the user a banner
+        // once per distinct error kind instead of on every failing chunk.
+        if (msg && msg.type === "TRANSCRIPTION_ERROR") {
+            const errorKind = msg.errorKind;
+            if (errorKind && errorKind !== lastShownErrorKind) {
+                lastShownErrorKind = errorKind;
+                await notifyActiveTabOfError(errorKind);
+            }
             return { ok: true };
         }
         if (msg && msg.type === "ASK_LECTURE") {

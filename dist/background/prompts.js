@@ -1,3 +1,6 @@
+// Shared instruction appended to prompts whose output may contain math, so the
+// model wraps every expression in LaTeX delimiters the client can render.
+const MATH_FORMATTING_INSTRUCTION = `Formatting of mathematics: wrap EVERY mathematical expression in LaTeX delimiters - use $...$ for inline math and $$...$$ for display math. This includes not only full formulas but also single symbols, variables, exponents, subscripts and function names (for example write $x^2$, $f(x)$, $w_0$, not x^2, f(x), w_0). Never write mathematics as plain text.`;
 // Chat prompt. The transcript is wrapped in explicit delimiters so it is
 // treated as context, never as instructions.
 export function buildAskMessages(question, transcript) {
@@ -11,7 +14,9 @@ transcript. If the transcript does not contain it, say so plainly - in that
 specific case it is fine to say the lecture did not cover it.
 
 Style: clear, focused, educational. Avoid unnecessary padding. Never output
-internal labels or rule names - just write the natural response.`;
+internal labels or rule names - just write the natural response.
+
+${MATH_FORMATTING_INSTRUCTION}`;
     const userPrompt = hasTranscript
         ? `Lecture transcript (context only, delimited below):
 <<<TRANSCRIPT>>>
@@ -29,7 +34,8 @@ ${question}`;
         { role: "user", content: userPrompt },
     ];
 }
-// Ported verbatim from quizService.mapLectureTopics.
+// Ported from quizService.mapLectureTopics. Topics are short labels, so no math
+// formatting instruction is needed here.
 export function buildQuizTopicsMessages(transcript) {
     const systemPrompt = `
 You analyze a lecture transcript and extract the main general topics a student
@@ -61,7 +67,7 @@ ${transcript}
         { role: "user", content: userPrompt },
     ];
 }
-// Ported verbatim from quizService.generateQuizQuestion.
+// Ported from quizService.generateQuizQuestion.
 export function buildQuizQuestionMessages(topic, transcript) {
     const systemPrompt = `
 You are a quiz generator for a student practicing a recorded lecture. You are
@@ -81,6 +87,7 @@ Create ONE multiple-choice question about the given topic:
   connected to the topic.
 - Write everything in the SAME language as the transcript.
 - Vary which position holds the correct answer.
+- ${MATH_FORMATTING_INSTRUCTION}
 
 Respond with ONLY a valid JSON object, no markdown, no extra text, in exactly
 this shape:
@@ -105,7 +112,7 @@ ${transcript}
         { role: "user", content: userPrompt },
     ];
 }
-// Ported verbatim from summaryService.generateLectureSummary.
+// Ported from summaryService.generateLectureSummary.
 export function buildSummaryMessages(text) {
     const systemPrompt = "You are a professional assistant that summarizes Hebrew lecture transcripts into clear, organized, and educational Hebrew study sheets for students.";
     const userPrompt = `Summarize the following lecture transcript in Hebrew.
@@ -123,6 +130,7 @@ Instructions:
 - Do not add general knowledge, examples, formulas, or conclusions that were not said or clearly implied in the transcript.
 - Do not mention that the summary is based on a transcript.
 - Output only the final Hebrew summary.
+- ${MATH_FORMATTING_INSTRUCTION}
 
 Lecture transcript:
 """

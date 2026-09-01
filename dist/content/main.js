@@ -29,6 +29,7 @@ function hideExtensionButtons() {
         "wrapper-main-button",
         "lecture-chat-panel",
         "lecture-quiz-overlay",
+        "lecture-capture-error",
     ];
     for (const id of ids) {
         const element = document.getElementById(id);
@@ -41,11 +42,57 @@ function hideExtensionButtons() {
 function hasVideo() {
     return findVideoElement() !== null;
 }
+// Removes the capture-error banner if it is currently shown.
+function dismissCaptureError() {
+    const banner = document.getElementById("lecture-capture-error");
+    if (banner) {
+        banner.remove();
+    }
+}
+// Shows a persistent banner describing a transcription problem. The banner
+// stays until the user dismisses it, and offers a shortcut to the options page.
+function showCaptureError(message) {
+    // Reuse a single banner element so repeated errors don't stack.
+    dismissCaptureError();
+    const banner = document.createElement("div");
+    banner.id = "lecture-capture-error";
+    const icon = document.createElement("span");
+    icon.className = "lecture-error-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "!";
+    const body = document.createElement("div");
+    body.className = "lecture-error-body";
+    const text = document.createElement("p");
+    text.className = "lecture-error-text";
+    text.textContent = message;
+    const settingsButton = document.createElement("button");
+    settingsButton.className = "lecture-error-action";
+    settingsButton.type = "button";
+    settingsButton.textContent = "Open settings";
+    settingsButton.addEventListener("click", () => {
+        chrome.runtime.sendMessage({ type: "OPEN_OPTIONS" }, () => {
+            void chrome.runtime.lastError;
+        });
+    });
+    body.appendChild(text);
+    body.appendChild(settingsButton);
+    const closeButton = document.createElement("button");
+    closeButton.className = "lecture-error-close";
+    closeButton.type = "button";
+    closeButton.setAttribute("aria-label", "Dismiss");
+    closeButton.textContent = "✕";
+    closeButton.addEventListener("click", dismissCaptureError);
+    banner.appendChild(icon);
+    banner.appendChild(body);
+    banner.appendChild(closeButton);
+    document.body.appendChild(banner);
+}
 // Exposes content-script UI controls to the extension message handlers.
 window.ContentUI = {
     showExtensionButtons,
     hideExtensionButtons,
     hasVideo,
+    showCaptureError,
 };
 // Pauses background capture when the restored page has no active playback.
 function alignCaptureToPausedVideo() {

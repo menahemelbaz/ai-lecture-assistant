@@ -71,7 +71,6 @@ window.Controller = {
                 return;
             }
             for (const exchange of response.history) {
-                // Reuse the textContent-based renderer to keep restored content XSS-safe.
                 Controller.addChatMessage(exchange.question, "user");
                 Controller.addChatMessage(exchange.answer, "assistant");
             }
@@ -90,8 +89,6 @@ window.Controller = {
         if (existingOverlay) {
             return existingOverlay;
         }
-        // Only static markup is assigned with innerHTML; generated quiz content is
-        // inserted later through textContent and createElement to remain XSS-safe.
         const overlay = document.createElement("div");
         overlay.id = "lecture-quiz-overlay";
         overlay.innerHTML = `
@@ -109,14 +106,12 @@ window.Controller = {
         document.body.appendChild(overlay);
         const modal = document.getElementById("lecture-quiz-modal");
         const closeButton = document.getElementById("lecture-quiz-close");
-        // Both the close button and backdrop dismiss the quiz.
         closeButton.addEventListener("click", () => {
             overlay.style.display = "none";
         });
         overlay.addEventListener("click", () => {
             overlay.style.display = "none";
         });
-        // Prevent clicks inside the modal from reaching the backdrop handler.
         modal.addEventListener("click", (event) => {
             event.stopPropagation();
         });
@@ -126,14 +121,12 @@ window.Controller = {
         const overlay = Controller.createQuizPanel();
         if (overlay.style.display === "none" || overlay.style.display === "") {
             overlay.style.display = "flex";
-            // Reopening the quiz starts a new topic-selection flow.
             activeQuizTopic = null;
             Controller.loadQuizTopics();
             return;
         }
         overlay.style.display = "none";
     },
-    // Replaces the quiz content with a single status message.
     setQuizStatus(text) {
         const body = document.getElementById("lecture-quiz-body");
         if (!body) {
@@ -145,7 +138,6 @@ window.Controller = {
         status.textContent = text;
         body.appendChild(status);
     },
-    // Requests practice topics derived from the active lecture transcript.
     loadQuizTopics() {
         Controller.setQuizStatus("Loading topics...");
         chrome.runtime.sendMessage({ type: "QUIZ_TOPICS" }, (response) => {
@@ -164,7 +156,6 @@ window.Controller = {
             Controller.renderQuizTopics(response.topics);
         });
     },
-    // Renders model-generated topic text through textContent to remain XSS-safe.
     renderQuizTopics(topics) {
         const body = document.getElementById("lecture-quiz-body");
         if (!body) {
@@ -186,7 +177,6 @@ window.Controller = {
             body.appendChild(button);
         }
     },
-    // Requests and renders one question for the selected topic.
     loadQuizQuestion(topic) {
         Controller.setQuizStatus("Preparing question...");
         chrome.runtime.sendMessage({ type: "QUIZ_QUESTION", topic }, (response) => {
@@ -205,8 +195,6 @@ window.Controller = {
             Controller.renderQuizQuestion(response.question || "", response.options);
         });
     },
-    // Renders model-generated question content through textContent. Answer
-    // validation remains local because each option already includes correctness.
     renderQuizQuestion(question, options) {
         const body = document.getElementById("lecture-quiz-body");
         if (!body) {
@@ -215,14 +203,14 @@ window.Controller = {
         body.textContent = "";
         const heading = document.createElement("h3");
         heading.className = "lecture-quiz-heading";
-        heading.textContent = question;
+        Controller.renderMathInto(heading, question);
         body.appendChild(heading);
         const optionButtons = [];
         options.forEach((option) => {
             const button = document.createElement("button");
             button.className = "lecture-quiz-option";
             const label = document.createElement("div");
-            label.textContent = option.text;
+            Controller.renderMathInto(label, option.text);
             button.appendChild(label);
             button.addEventListener("click", () => {
                 Controller.revealQuizAnswer(optionButtons, options, option);
@@ -231,8 +219,6 @@ window.Controller = {
             body.appendChild(button);
         });
     },
-    // Locks the options, reveals the result and explanations, and displays the
-    // available follow-up actions.
     revealQuizAnswer(optionButtons, options, chosen) {
         const body = document.getElementById("lecture-quiz-body");
         if (!body) {
@@ -250,7 +236,7 @@ window.Controller = {
             }
             const explanation = document.createElement("div");
             explanation.className = "lecture-quiz-explanation";
-            explanation.textContent = option.explanation;
+            Controller.renderMathInto(explanation, option.explanation);
             button.appendChild(explanation);
         });
         const actions = document.createElement("div");
@@ -277,6 +263,61 @@ window.Controller = {
         body.appendChild(actions);
         body.scrollTop = body.scrollHeight;
     },
+    // Renders text that may contain LaTeX math into an element. Plain text is
+    // inserted as textContent (XSS-safe); only the math segments are handed to
+    // KaTeX, which produces its own safe markup. Supports the delimiters that the
+    // model uses in practice: $$...$$ and \[...\] (display), $...$ and \(...\)
+    // (inline).
+    renderMathInto(target, raw) {
+        target.textContent = "";
+        // Split on all four delimiter styles, keeping the delimiters so each
+        // segment can be classified. [\s\S] matches across newlines for display math.
+        const pattern = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^$\n]+?\$|\\\([\s\S]+?\\\))/g;
+        const segments = raw.split(pattern);
+        for (const segment of segments) {
+            if (!segment) {
+                continue;
+            }
+            let expression = null;
+            let isDisplay = false;
+            if (segment.startsWith("$$") && segment.endsWith("$$")) {
+                expression = segment.slice(2, -2);
+                isDisplay = true;
+            }
+            else if (segment.startsWith("\\[") && segment.endsWith("\\]")) {
+                expression = segment.slice(2, -2);
+                isDisplay = true;
+            }
+            else if (segment.startsWith("\\(") && segment.endsWith("\\)")) {
+                expression = segment.slice(2, -2);
+                isDisplay = false;
+            }
+            else if (segment.startsWith("$") &&
+                segment.endsWith("$") &&
+                segment.length > 2) {
+                expression = segment.slice(1, -1);
+                isDisplay = false;
+            }
+            if (expression !== null) {
+                const span = document.createElement("span");
+                try {
+                    span.innerHTML = katex.renderToString(expression, {
+                        displayMode: isDisplay,
+                        throwOnError: false,
+                    });
+                }
+                catch {
+                    // If KaTeX fails, fall back to the raw text safely.
+                    span.textContent = segment;
+                }
+                target.appendChild(span);
+            }
+            else {
+                // Plain text stays textContent — never parsed as HTML.
+                target.appendChild(document.createTextNode(segment));
+            }
+        }
+    },
     addChatMessage(text, sender) {
         const messagesContainer = document.getElementById("lecture-chat-messages");
         if (!messagesContainer) {
@@ -284,7 +325,13 @@ window.Controller = {
         }
         const message = document.createElement("div");
         message.className = `lecture-chat-message ${sender}`;
-        message.textContent = text;
+        // Render math for assistant answers; user questions stay plain text.
+        if (sender === "assistant") {
+            Controller.renderMathInto(message, text);
+        }
+        else {
+            message.textContent = text;
+        }
         messagesContainer.appendChild(message);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
         return message;
@@ -333,23 +380,21 @@ window.Controller = {
             const answer = response.answer || "No response was received from the server.";
             if (loadingMessage) {
                 loadingMessage.classList.remove("lecture-chat-loading-message");
-                loadingMessage.textContent = answer;
+                // Render the answer with math support.
+                Controller.renderMathInto(loadingMessage, answer);
             }
-            // Persist only completed exchanges so chat history survives a refresh.
             if (response.answer) {
                 chrome.runtime.sendMessage({
                     type: "SAVE_CHAT_MESSAGE",
                     question,
                     answer: response.answer,
                 }, () => {
-                    // Read lastError to prevent an unchecked runtime warning.
                     void chrome.runtime.lastError;
                 });
             }
         });
     },
     async textSummary(summaryButton) {
-        // Prevent duplicate requests while the summary is being generated.
         summaryButton.disabled = true;
         summaryButton.innerHTML =
             '<i class="fa-solid fa-spinner fa-spin fa-2x"></i>';
@@ -358,7 +403,6 @@ window.Controller = {
             chrome.runtime.sendMessage({
                 type: "GENERATE_SUMMARY",
             }, (response) => {
-                // Restore the button before handling the response result.
                 summaryButton.disabled = false;
                 summaryButton.innerHTML =
                     '<i class="fa-solid fa-file-lines fa-2x"></i>';
@@ -383,9 +427,6 @@ window.Controller = {
             alert("Error generating summary.");
         }
     },
-    // Prints the summary through a hidden, isolated iframe so the host page's
-    // styles never affect the output and no popup can be blocked. The iframe is
-    // removed once the print dialog is dismissed.
     printSummaryHtml(html) {
         const iframe = document.createElement("iframe");
         iframe.style.position = "fixed";
@@ -403,17 +444,14 @@ window.Controller = {
             }
             frameWindow.focus();
             frameWindow.print();
-            // Remove the iframe after the print dialog is handled.
             const cleanup = () => iframe.remove();
             frameWindow.addEventListener("afterprint", cleanup);
-            // Fallback removal in case afterprint does not fire.
             setTimeout(cleanup, 60000);
         };
         iframe.srcdoc = html;
         document.body.appendChild(iframe);
     },
     onClick() {
-        // Bind each extension action to its corresponding control.
         const summaryButton = document.getElementById("summary");
         const askButton = document.getElementById("questions");
         const quizButton = document.getElementById("quiz");

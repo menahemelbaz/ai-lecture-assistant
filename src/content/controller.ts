@@ -1,6 +1,11 @@
 // Preserves the selected quiz topic between consecutive questions.
 let activeQuizTopic: string | null = null;
 
+// KaTeX is loaded as a content-script global before this file runs.
+declare const katex: {
+  renderToString(input: string, options?: Record<string, unknown>): string;
+};
+
 window.Controller = {
   createChat(): HTMLDivElement {
     const existingPanel = document.getElementById("lecture-chat-panel");
@@ -100,7 +105,6 @@ window.Controller = {
         }
 
         for (const exchange of response.history) {
-          // Reuse the textContent-based renderer to keep restored content XSS-safe.
           Controller.addChatMessage(exchange.question, "user");
           Controller.addChatMessage(exchange.answer, "assistant");
         }
@@ -126,8 +130,6 @@ window.Controller = {
       return existingOverlay as HTMLDivElement;
     }
 
-    // Only static markup is assigned with innerHTML; generated quiz content is
-    // inserted later through textContent and createElement to remain XSS-safe.
     const overlay = document.createElement("div");
     overlay.id = "lecture-quiz-overlay";
 
@@ -154,7 +156,6 @@ window.Controller = {
       "lecture-quiz-close"
     ) as HTMLButtonElement;
 
-    // Both the close button and backdrop dismiss the quiz.
     closeButton.addEventListener("click", () => {
       overlay.style.display = "none";
     });
@@ -163,7 +164,6 @@ window.Controller = {
       overlay.style.display = "none";
     });
 
-    // Prevent clicks inside the modal from reaching the backdrop handler.
     modal.addEventListener("click", (event: MouseEvent) => {
       event.stopPropagation();
     });
@@ -177,7 +177,6 @@ window.Controller = {
     if (overlay.style.display === "none" || overlay.style.display === "") {
       overlay.style.display = "flex";
 
-      // Reopening the quiz starts a new topic-selection flow.
       activeQuizTopic = null;
       Controller.loadQuizTopics();
 
@@ -187,7 +186,6 @@ window.Controller = {
     overlay.style.display = "none";
   },
 
-  // Replaces the quiz content with a single status message.
   setQuizStatus(text: string): void {
     const body = document.getElementById("lecture-quiz-body");
 
@@ -204,7 +202,6 @@ window.Controller = {
     body.appendChild(status);
   },
 
-  // Requests practice topics derived from the active lecture transcript.
   loadQuizTopics(): void {
     Controller.setQuizStatus("Loading topics...");
 
@@ -235,7 +232,6 @@ window.Controller = {
     );
   },
 
-  // Renders model-generated topic text through textContent to remain XSS-safe.
   renderQuizTopics(topics: string[]): void {
     const body = document.getElementById("lecture-quiz-body");
 
@@ -264,7 +260,6 @@ window.Controller = {
     }
   },
 
-  // Requests and renders one question for the selected topic.
   loadQuizQuestion(topic: string): void {
     Controller.setQuizStatus("Preparing question...");
 
@@ -298,8 +293,6 @@ window.Controller = {
     );
   },
 
-  // Renders model-generated question content through textContent. Answer
-  // validation remains local because each option already includes correctness.
   renderQuizQuestion(question: string, options: QuizOption[]): void {
     const body = document.getElementById("lecture-quiz-body");
 
@@ -311,7 +304,7 @@ window.Controller = {
 
     const heading = document.createElement("h3");
     heading.className = "lecture-quiz-heading";
-    heading.textContent = question;
+    Controller.renderMathInto(heading, question);
     body.appendChild(heading);
 
     const optionButtons: HTMLButtonElement[] = [];
@@ -321,7 +314,7 @@ window.Controller = {
       button.className = "lecture-quiz-option";
 
       const label = document.createElement("div");
-      label.textContent = option.text;
+      Controller.renderMathInto(label, option.text);
       button.appendChild(label);
 
       button.addEventListener("click", () => {
@@ -333,8 +326,6 @@ window.Controller = {
     });
   },
 
-  // Locks the options, reveals the result and explanations, and displays the
-  // available follow-up actions.
   revealQuizAnswer(
     optionButtons: HTMLButtonElement[],
     options: QuizOption[],
@@ -360,7 +351,7 @@ window.Controller = {
 
       const explanation = document.createElement("div");
       explanation.className = "lecture-quiz-explanation";
-      explanation.textContent = option.explanation;
+      Controller.renderMathInto(explanation, option.explanation);
       button.appendChild(explanation);
     });
 
@@ -396,6 +387,68 @@ window.Controller = {
     body.scrollTop = body.scrollHeight;
   },
 
+  // Renders text that may contain LaTeX math into an element. Plain text is
+  // inserted as textContent (XSS-safe); only the math segments are handed to
+  // KaTeX, which produces its own safe markup. Supports the delimiters that the
+  // model uses in practice: $$...$$ and \[...\] (display), $...$ and \(...\)
+  // (inline).
+  renderMathInto(target: HTMLElement, raw: string): void {
+    target.textContent = "";
+
+    // Split on all four delimiter styles, keeping the delimiters so each
+    // segment can be classified. [\s\S] matches across newlines for display math.
+    const pattern =
+      /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^$\n]+?\$|\\\([\s\S]+?\\\))/g;
+
+    const segments = raw.split(pattern);
+
+    for (const segment of segments) {
+      if (!segment) {
+        continue;
+      }
+
+      let expression: string | null = null;
+      let isDisplay = false;
+
+      if (segment.startsWith("$$") && segment.endsWith("$$")) {
+        expression = segment.slice(2, -2);
+        isDisplay = true;
+      } else if (segment.startsWith("\\[") && segment.endsWith("\\]")) {
+        expression = segment.slice(2, -2);
+        isDisplay = true;
+      } else if (segment.startsWith("\\(") && segment.endsWith("\\)")) {
+        expression = segment.slice(2, -2);
+        isDisplay = false;
+      } else if (
+        segment.startsWith("$") &&
+        segment.endsWith("$") &&
+        segment.length > 2
+      ) {
+        expression = segment.slice(1, -1);
+        isDisplay = false;
+      }
+
+      if (expression !== null) {
+        const span = document.createElement("span");
+
+        try {
+          span.innerHTML = katex.renderToString(expression, {
+            displayMode: isDisplay,
+            throwOnError: false,
+          });
+        } catch {
+          // If KaTeX fails, fall back to the raw text safely.
+          span.textContent = segment;
+        }
+
+        target.appendChild(span);
+      } else {
+        // Plain text stays textContent — never parsed as HTML.
+        target.appendChild(document.createTextNode(segment));
+      }
+    }
+  },
+
   addChatMessage(
     text: string,
     sender: "user" | "assistant"
@@ -407,9 +460,14 @@ window.Controller = {
     }
 
     const message = document.createElement("div");
-
     message.className = `lecture-chat-message ${sender}`;
-    message.textContent = text;
+
+    // Render math for assistant answers; user questions stay plain text.
+    if (sender === "assistant") {
+      Controller.renderMathInto(message, text);
+    } else {
+      message.textContent = text;
+    }
 
     messagesContainer.appendChild(message);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -478,10 +536,10 @@ window.Controller = {
 
         if (loadingMessage) {
           loadingMessage.classList.remove("lecture-chat-loading-message");
-          loadingMessage.textContent = answer;
+          // Render the answer with math support.
+          Controller.renderMathInto(loadingMessage, answer);
         }
 
-        // Persist only completed exchanges so chat history survives a refresh.
         if (response.answer) {
           chrome.runtime.sendMessage(
             {
@@ -490,7 +548,6 @@ window.Controller = {
               answer: response.answer,
             },
             () => {
-              // Read lastError to prevent an unchecked runtime warning.
               void chrome.runtime.lastError;
             }
           );
@@ -500,7 +557,6 @@ window.Controller = {
   },
 
   async textSummary(summaryButton: HTMLButtonElement): Promise<void> {
-    // Prevent duplicate requests while the summary is being generated.
     summaryButton.disabled = true;
     summaryButton.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin fa-2x"></i>';
@@ -512,7 +568,6 @@ window.Controller = {
           type: "GENERATE_SUMMARY",
         },
         (response: SummaryResponse) => {
-          // Restore the button before handling the response result.
           summaryButton.disabled = false;
           summaryButton.innerHTML =
             '<i class="fa-solid fa-file-lines fa-2x"></i>';
@@ -539,9 +594,6 @@ window.Controller = {
     }
   },
 
-  // Prints the summary through a hidden, isolated iframe so the host page's
-  // styles never affect the output and no popup can be blocked. The iframe is
-  // removed once the print dialog is dismissed.
   printSummaryHtml(html: string): void {
     const iframe = document.createElement("iframe");
 
@@ -564,11 +616,9 @@ window.Controller = {
       frameWindow.focus();
       frameWindow.print();
 
-      // Remove the iframe after the print dialog is handled.
       const cleanup = () => iframe.remove();
       frameWindow.addEventListener("afterprint", cleanup);
 
-      // Fallback removal in case afterprint does not fire.
       setTimeout(cleanup, 60000);
     };
 
@@ -577,7 +627,6 @@ window.Controller = {
   },
 
   onClick(): void {
-    // Bind each extension action to its corresponding control.
     const summaryButton = document.getElementById(
       "summary"
     ) as HTMLButtonElement;

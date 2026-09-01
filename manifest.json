@@ -39,9 +39,11 @@
         "<all_urls>"
       ],
       "css": [
+        "vendor/katex/katex.min.css",
         "style/overlay.css"
       ],
       "js": [
+        "vendor/katex/katex.min.js",
         "dist/content/buttons.js",
         "dist/content/controller.js",
         "dist/content/manager.js",
@@ -55,7 +57,8 @@
       "resources": [
         "images/*.png",
         "style/overlay.css",
-        "dist/content/*.js"
+        "dist/content/*.js",
+        "vendor/katex/fonts/*"
       ],
       "matches": [
         "<all_urls>"

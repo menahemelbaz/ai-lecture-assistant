@@ -30,6 +30,7 @@ interface Window {
       options: QuizOption[],
       chosen: QuizOption
     ): void;
+    renderMathInto(target: HTMLElement, raw: string): void;
     addChatMessage(
       text: string,
       sender: "user" | "assistant"
@@ -51,6 +52,7 @@ interface Window {
     showExtensionButtons(): void;
     hideExtensionButtons(): void;
     hasVideo(): boolean;
+    showCaptureError(message: string): void;
   };
 }
 

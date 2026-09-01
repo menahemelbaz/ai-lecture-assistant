@@ -82,7 +82,7 @@ function startRecordingIfVideoIsAlreadyPlaying() {
 }
 // Track page clicks so nearby video events can be identified as user actions.
 document.addEventListener("click", markUserClick, true);
-// Handles extension activation and deactivation messages from the background.
+// Handles extension activation, deactivation, and error messages from the background.
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === "CAPTURE_ARMED") {
         // Avoid activating the extension UI when the page has no video.
@@ -109,6 +109,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({
             ok: true,
             info: "Extension UI removed",
+        });
+        return true;
+    }
+    // A transcription error surfaced from the offscreen document. The
+    // background sends a ready-to-show message; display it to the user.
+    if (message.type === "CAPTURE_ERROR") {
+        if (message.text) {
+            ContentUI.showCaptureError(message.text);
+        }
+        sendResponse({
+            ok: true,
+            info: "Capture error shown",
         });
         return true;
     }

@@ -2,10 +2,17 @@ import { buildWavBuffer, } from "./wavEncoder.js";
 import { OpenAiClient } from "../config/openaiClient.js";
 const WHISPER_MODEL = "whisper-1";
 const TRANSCRIPTION_LANGUAGE = "he";
-// Serializes transcription so the packets stay in their original order. Each
-// packet waits for the previous one, so Whisper calls never overlap and the
-// resulting text reaches the background in capture order.
+// Serializes transcription so the packets stay in their original order.
 let uploadQueue = Promise.resolve();
+// Notifies the background of a transcription failure so it can inform the user.
+function reportTranscriptionError(errorKind) {
+    chrome.runtime.sendMessage({
+        type: "TRANSCRIPTION_ERROR",
+        errorKind,
+    }, () => {
+        void chrome.runtime.lastError;
+    });
+}
 // Transcribes one buffered audio packet directly with OpenAI Whisper and sends
 // the resulting text to the background service worker.
 async function transcribePacket(packet, sampleRate) {
@@ -16,9 +23,8 @@ async function transcribePacket(packet, sampleRate) {
         language: TRANSCRIPTION_LANGUAGE,
     });
     if (!result.ok) {
-        // Step 4b will forward result.errorKind to the user. For now, surface it
-        // in the console without breaking the capture loop.
         console.error(`Transcription failed (${result.errorKind}): ${result.error}`);
+        reportTranscriptionError(result.errorKind);
         return;
     }
     const text = result.data.trim();
@@ -26,13 +32,12 @@ async function transcribePacket(packet, sampleRate) {
         return;
     }
     // Send the transcript chunk to the background, which attaches the active
-    // session id and appends it to the transcript store.
+    // session id and appends it to the transcript store. A successful chunk
+    // also implicitly signals recovery, letting the background re-arm errors.
     chrome.runtime.sendMessage({
         type: "TRANSCRIPT_CHUNK",
         text,
     }, () => {
-        // Read lastError to avoid an unchecked runtime warning if the
-        // background is momentarily asleep.
         void chrome.runtime.lastError;
     });
 }

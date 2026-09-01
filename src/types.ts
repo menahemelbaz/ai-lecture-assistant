@@ -3,6 +3,8 @@
 type ExtensionMessageType =
   | "CAPTURE_ARMED"
   | "CAPTURE_DISARMED"
+  | "CAPTURE_ERROR"
+  | "OPEN_OPTIONS"
   | "IS_TAB_ACTIVE"
   | "START_RECORDING"
   | "STOP_RECORDING"
@@ -13,6 +15,7 @@ type ExtensionMessageType =
   | "QUIZ_TOPICS"
   | "QUIZ_QUESTION"
   | "TRANSCRIPT_CHUNK"
+  | "TRANSCRIPTION_ERROR"
   | "GET_API_KEY"
   | "START_TAB_CAPTURE_INTERNAL"
   | "PAUSE_TAB_CAPTURE_INTERNAL"
@@ -61,6 +64,7 @@ interface ExtensionMessage {
   answer?: string;
   topic?: string;
   text?: string;
+  errorKind?: string;
   lectureContext?: LectureContext;
   confirmNewSession?: boolean;
 }
