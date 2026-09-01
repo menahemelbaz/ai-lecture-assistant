@@ -96,9 +96,9 @@ body {
     font-weight: 600;
     padding: 6px 12px;
     border-radius: 999px;
-    background: var(--soft-peach);
-    color: var(--brand-hover);
-    border: 1px solid rgba(245, 138, 42, 0.22);
+    background: #fdecea;
+    color: #f32f1a;
+    border: 1px solid #f5c6cb;
     white-space: nowrap;
     transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
 }
@@ -108,7 +108,7 @@ body {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--brand);
+    background: #f32f1a;
     transition: background 180ms ease;
 }
 

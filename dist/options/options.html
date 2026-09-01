@@ -31,6 +31,21 @@
                     summaries. Your key is stored locally on this device.
                 </p>
 
+                <div class="privacy-consent">
+                    <label class="privacy-consent-label">
+                        <input id="privacy-consent" type="checkbox" />
+                        <span>
+                            I understand that audio captured from the selected tab, the resulting
+                            transcript, and questions I submit are sent directly to OpenAI to
+                            provide the extension's study features.
+                            <a href="https://github.com/menahemelbaz/ai-lecture-assistant-showcase/blob/main/PRIVACY.md"
+                                target="_blank" rel="noopener noreferrer">
+                                Privacy Policy
+                            </a>
+                        </span>
+                    </label>
+                </div>
+
                 <div class="field">
                     <label class="field-label" for="api-key-input">API key</label>
                     <div class="input-wrap">
@@ -56,8 +71,12 @@
                 </div>
 
                 <div class="actions">
-                    <button id="save-button" class="btn-primary" type="button">Save API key</button>
-                    <button id="clear-button" class="btn-ghost" type="button" hidden>Remove key</button>
+                    <button id="save-button" class="btn-primary" type="button">
+                        Save API key
+                    </button>
+                    <button id="clear-button" class="btn-ghost" type="button" hidden>
+                        Remove key
+                    </button>
                 </div>
 
                 <p id="status-message" class="status" role="status"></p>

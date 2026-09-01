@@ -1,5 +1,6 @@
 "use strict";
 const API_KEY_STORAGE_KEY = "openaiApiKey";
+const PRIVACY_CONSENT_STORAGE_KEY = "privacyConsentAccepted";
 // How long the primary button shows the "Saved ✓" confirmation.
 const SAVED_FEEDBACK_MS = 1600;
 /**
@@ -45,41 +46,53 @@ function flashSaved() {
     saveButton.textContent = "Saved ✓";
     setTimeout(() => {
         saveButton.classList.remove("is-saved");
-        // A key exists at this point, so restore to the "Update key" label.
         saveButton.textContent = "Update key";
     }, SAVED_FEEDBACK_MS);
 }
 /**
  * Basic shape check: OpenAI keys start with "sk-". This is a format check only,
- * not a validity check against the API (that comes in a later step).
+ * not a validity check against the API.
  */
 function looksLikeApiKey(value) {
     return value.startsWith("sk-") && value.length > 20;
 }
 /**
- * Load any saved key into the input on page open.
+ * Load the saved key and privacy-consent state when the page opens.
  */
 async function loadSavedKey() {
     try {
-        const result = await chrome.storage.local.get(API_KEY_STORAGE_KEY);
+        const result = await chrome.storage.local.get([
+            API_KEY_STORAGE_KEY,
+            PRIVACY_CONSENT_STORAGE_KEY,
+        ]);
         const savedKey = result[API_KEY_STORAGE_KEY];
         const isSet = typeof savedKey === "string" && savedKey.length > 0;
-        if (isSet) {
-            const input = document.getElementById("api-key-input");
+        const input = document.getElementById("api-key-input");
+        if (input && isSet) {
             input.value = savedKey;
+        }
+        const consentCheckbox = document.getElementById("privacy-consent");
+        if (consentCheckbox) {
+            consentCheckbox.checked =
+                result[PRIVACY_CONSENT_STORAGE_KEY] === true;
         }
         reflectKeyPresence(isSet);
     }
     catch (err) {
-        console.error("Error loading saved key:", err);
+        console.error("Error loading saved settings:", err);
     }
 }
 /**
- * Save the entered key to local storage.
+ * Save the entered key after privacy consent has been accepted.
  */
 async function saveKey() {
     const input = document.getElementById("api-key-input");
+    const consentCheckbox = document.getElementById("privacy-consent");
     const key = input.value.trim();
+    if (!consentCheckbox?.checked) {
+        showStatus("Please review and accept the privacy disclosure before saving.", "error");
+        return;
+    }
     if (!key) {
         showStatus("Please enter a key.", "error");
         return;
@@ -89,7 +102,10 @@ async function saveKey() {
         return;
     }
     try {
-        await chrome.storage.local.set({ [API_KEY_STORAGE_KEY]: key });
+        await chrome.storage.local.set({
+            [API_KEY_STORAGE_KEY]: key,
+            [PRIVACY_CONSENT_STORAGE_KEY]: true,
+        });
         showStatus("API key saved successfully.", "success");
         reflectKeyPresence(true);
         flashSaved();
@@ -128,7 +144,33 @@ document.addEventListener("DOMContentLoaded", () => {
     const saveButton = document.getElementById("save-button");
     const clearButton = document.getElementById("clear-button");
     const toggleButton = document.getElementById("toggle-visibility");
+    const consentCheckbox = document.getElementById("privacy-consent");
     saveButton?.addEventListener("click", saveKey);
     clearButton?.addEventListener("click", clearKey);
     toggleButton?.addEventListener("click", toggleVisibility);
+    consentCheckbox?.addEventListener("change", async () => {
+        try {
+            if (consentCheckbox.checked) {
+                await chrome.storage.local.set({
+                    [PRIVACY_CONSENT_STORAGE_KEY]: true,
+                });
+                showStatus("Privacy disclosure accepted. You can now save your API key.", "success");
+                return;
+            }
+            await chrome.storage.local.remove([
+                PRIVACY_CONSENT_STORAGE_KEY,
+                API_KEY_STORAGE_KEY,
+            ]);
+            const input = document.getElementById("api-key-input");
+            if (input) {
+                input.value = "";
+            }
+            reflectKeyPresence(false);
+            showStatus("Privacy consent withdrawn. AI features are disabled.", "error");
+        }
+        catch (err) {
+            console.error("Error updating privacy consent:", err);
+            showStatus("Error updating privacy consent.", "error");
+        }
+    });
 });

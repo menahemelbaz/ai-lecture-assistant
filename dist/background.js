@@ -4,6 +4,17 @@ import { AskLectureClient } from "./background/askLectureClient.js";
 import { QuizClient } from "./background/quizClient.js";
 import { RecordingController } from "./background/recordingController.js";
 import { ApiKeyStore } from "./background/apiKeyStore.js";
+const PRIVACY_CONSENT_STORAGE_KEY = "privacyConsentAccepted";
+const OFFSCREEN_DOCUMENT_URL = chrome.runtime.getURL("offscreen.html");
+chrome.storage.local
+    .setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" })
+    .catch((err) => {
+    console.error("Failed to restrict local storage access:", err);
+});
+async function hasPrivacyConsent() {
+    const result = await chrome.storage.local.get(PRIVACY_CONSENT_STORAGE_KEY);
+    return result[PRIVACY_CONSENT_STORAGE_KEY] === true;
+}
 // Restore the transcript before capture resumes so incoming transcript chunks
 // are appended only after the persisted state is available.
 TranscriptStore.loadTranscriptState()
@@ -77,6 +88,11 @@ chrome.action.onClicked.addListener(async (tab) => {
         lastShownErrorKind = null;
         return;
     }
+    // Do not start a new capture session without explicit privacy consent.
+    if (!(await hasPrivacyConsent())) {
+        await chrome.runtime.openOptionsPage();
+        return;
+    }
     // A first click arms capture before requesting the content-script UI.
     const startResponse = await RecordingController.beginRecordingForTab(tabId);
     if (!startResponse.ok) {
@@ -135,6 +151,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // The offscreen document has no direct chrome.storage access, so it asks
         // the background for the stored key. The key stays within the extension.
         if (msg && msg.type === "GET_API_KEY") {
+            if (sender.url !== OFFSCREEN_DOCUMENT_URL) {
+                console.warn("Blocked an unauthorized API key request");
+                return {
+                    ok: false,
+                    error: "Unauthorized API key request",
+                };
+            }
             const apiKey = await ApiKeyStore.getApiKey();
             return { ok: true, apiKey };
         }
@@ -198,7 +221,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 };
             }
             let fullTranscript = "";
-            if (requesterTabId !== undefined && requesterTabId === activeTabId) {
+            if (requesterTabId !== undefined &&
+                requesterTabId === activeTabId) {
                 fullTranscript = await TranscriptStore.getFullTranscript();
             }
             else {
@@ -214,10 +238,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             const answer = msg.answer?.trim();
             if (requesterTabId === undefined ||
                 requesterTabId !== activeTabId) {
-                return { ok: false, error: "No active session for this tab" };
+                return {
+                    ok: false,
+                    error: "No active session for this tab",
+                };
             }
             if (!question || !answer) {
-                return { ok: false, error: "Incomplete chat exchange" };
+                return {
+                    ok: false,
+                    error: "Incomplete chat exchange",
+                };
             }
             await TranscriptStore.appendChatExchange(question, answer);
             return { ok: true };
@@ -230,13 +260,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 requesterTabId !== activeTabId) {
                 return { ok: true, history: [] };
             }
-            return { ok: true, history: TranscriptStore.getChatHistory() };
+            return {
+                ok: true,
+                history: TranscriptStore.getChatHistory(),
+            };
         }
         // Derive practice topics from the active lecture transcript.
         if (msg && msg.type === "QUIZ_TOPICS") {
             const transcript = await getTranscriptForTab(sender.tab?.id);
             if (transcript === null) {
-                return { ok: false, error: "No active session for this tab" };
+                return {
+                    ok: false,
+                    error: "No active session for this tab",
+                };
             }
             return await QuizClient.fetchTopics(transcript);
         }
@@ -244,11 +280,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (msg && msg.type === "QUIZ_QUESTION") {
             const transcript = await getTranscriptForTab(sender.tab?.id);
             if (transcript === null) {
-                return { ok: false, error: "No active session for this tab" };
+                return {
+                    ok: false,
+                    error: "No active session for this tab",
+                };
             }
             const topic = msg.topic?.trim();
             if (!topic) {
-                return { ok: false, error: "No topic provided" };
+                return {
+                    ok: false,
+                    error: "No topic provided",
+                };
             }
             return await QuizClient.fetchQuestion(transcript, topic);
         }

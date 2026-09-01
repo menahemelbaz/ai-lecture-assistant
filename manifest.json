@@ -1,5 +1,6 @@
 {
   "manifest_version": 3,
+  "minimum_chrome_version": "116",
   "name": "AI Lecture Assistant",
   "version": "1.0",
   "description": "AI study assistant for recorded lectures",
@@ -8,17 +9,13 @@
     "open_in_tab": true
   },
   "permissions": [
-    "scripting",
     "storage",
-    "tabs",
-    "downloads",
     "tabCapture",
     "offscreen",
     "activeTab"
   ],
   "host_permissions": [
-    "https://api.openai.com/*",
-    "<all_urls>"
+    "https://api.openai.com/*"
   ],
   "background": {
     "service_worker": "dist/background.js",
@@ -55,9 +52,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "images/*.png",
-        "style/overlay.css",
-        "dist/content/*.js",
+        "images/logo.png",
         "vendor/katex/katex.min.css",
         "vendor/katex/fonts/*"
       ],
