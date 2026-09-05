@@ -84,6 +84,12 @@ function requestRecordingStart(
         return;
       }
 
+      // YouTube keeps the existing page DOM during navigation. Clear the
+      // rendered chat only after the confirmed session switch succeeds.
+      if (response?.ok && confirmNewSession) {
+        Controller.clearChatMessages();
+      }
+
       // Reset the state so a later user-initiated playback can retry.
       if (!response?.ok) {
         videosStartedAfterUserClick.delete(video);

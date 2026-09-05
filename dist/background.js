@@ -122,6 +122,22 @@ chrome.action.onClicked.addListener(async (tab) => {
         await RecordingController.endRecording();
     }
 });
+// Releases capture state when the tab that owns the active session is closed.
+chrome.tabs.onRemoved.addListener((tabId) => {
+    void (async () => {
+        if (!(await RecordingController.isActiveRecordingTab(tabId))) {
+            return;
+        }
+        const stopResponse = await RecordingController.endRecording();
+        if (!stopResponse.ok) {
+            console.warn("Capture cleanup after closing the active tab reported an error:", stopResponse.error);
+        }
+        // Clear any error state so capture can start cleanly in another tab.
+        lastShownErrorKind = null;
+    })().catch((error) => {
+        console.error("Failed to clean up after closing the active tab:", error);
+    });
+});
 /**
  * Returns the active transcript for the requesting tab, or null when the tab
  * does not own the current session.

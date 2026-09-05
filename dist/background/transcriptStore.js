@@ -182,8 +182,31 @@ function getCurrentSessionId() {
 function getActiveTabId() {
     return currentSession?.tabId ?? null;
 }
+// Extracts the stable video id from a standard YouTube watch URL.
+function getYouTubeVideoId(pageUrl) {
+    try {
+        const url = new URL(pageUrl);
+        const isYouTubeHost = url.hostname === "youtube.com" ||
+            url.hostname.endsWith(".youtube.com");
+        if (!isYouTubeHost) {
+            return null;
+        }
+        const videoId = url.searchParams.get("v");
+        return videoId && videoId.length > 0 ? videoId : null;
+    }
+    catch {
+        return null;
+    }
+}
 // Compares available lecture metadata while tolerating a small duration difference.
 function isSameLectureContext(current, next) {
+    const currentYouTubeVideoId = getYouTubeVideoId(current.pageUrl);
+    const nextYouTubeVideoId = getYouTubeVideoId(next.pageUrl);
+    // On YouTube, ads may replace the media source and duration without changing
+    // the lecture. The URL's v parameter changes only when the actual video changes.
+    if (currentYouTubeVideoId !== null && nextYouTubeVideoId !== null) {
+        return currentYouTubeVideoId === nextYouTubeVideoId;
+    }
     const bothPageUrlsAvailable = current.pageUrl.length > 0 && next.pageUrl.length > 0;
     if (bothPageUrlsAvailable && current.pageUrl !== next.pageUrl) {
         return false;

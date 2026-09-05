@@ -1,6 +1,93 @@
 "use strict";
 // Preserves the selected quiz topic between consecutive questions.
 let activeQuizTopic = null;
+const CHAT_PANEL_MARGIN = 12;
+const CHAT_PANEL_BUTTON_GAP = 16;
+const CHAT_PANEL_DRAG_THRESHOLD = 4;
+function placeChatPanel(panel, left, top) {
+    const maxLeft = Math.max(CHAT_PANEL_MARGIN, window.innerWidth - panel.offsetWidth - CHAT_PANEL_MARGIN);
+    const maxTop = Math.max(CHAT_PANEL_MARGIN, window.innerHeight - panel.offsetHeight - CHAT_PANEL_MARGIN);
+    panel.style.left = `${Math.min(Math.max(left, CHAT_PANEL_MARGIN), maxLeft)}px`;
+    panel.style.top = `${Math.min(Math.max(top, CHAT_PANEL_MARGIN), maxTop)}px`;
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+}
+function positionChatBesideMainButton(panel) {
+    const wrapper = document.getElementById("wrapper-main-button");
+    if (!wrapper) {
+        placeChatPanel(panel, window.innerWidth - panel.offsetWidth - CHAT_PANEL_MARGIN, window.innerHeight - panel.offsetHeight - CHAT_PANEL_MARGIN);
+        return;
+    }
+    const buttonRect = wrapper.getBoundingClientRect();
+    const leftPosition = buttonRect.left - panel.offsetWidth - CHAT_PANEL_BUTTON_GAP;
+    const rightPosition = buttonRect.right + CHAT_PANEL_BUTTON_GAP;
+    const buttonIsOnLeft = buttonRect.left + buttonRect.width / 2 < window.innerWidth / 2;
+    const canOpenOnLeft = leftPosition >= CHAT_PANEL_MARGIN;
+    const canOpenOnRight = rightPosition + panel.offsetWidth <=
+        window.innerWidth - CHAT_PANEL_MARGIN;
+    let left;
+    if (buttonIsOnLeft) {
+        left = canOpenOnRight || !canOpenOnLeft ? rightPosition : leftPosition;
+    }
+    else {
+        left = canOpenOnLeft || !canOpenOnRight ? leftPosition : rightPosition;
+    }
+    placeChatPanel(panel, left, buttonRect.bottom - panel.offsetHeight);
+}
+function setupChatPanelDrag(panel) {
+    const header = panel.querySelector("#lecture-chat-header");
+    if (!header) {
+        return;
+    }
+    let pointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let offsetX = 0;
+    let offsetY = 0;
+    let dragged = false;
+    header.addEventListener("pointerdown", (event) => {
+        const target = event.target;
+        if (event.button !== 0 || target?.closest("#lecture-chat-close")) {
+            return;
+        }
+        const rect = panel.getBoundingClientRect();
+        pointerId = event.pointerId;
+        startX = event.clientX;
+        startY = event.clientY;
+        offsetX = event.clientX - rect.left;
+        offsetY = event.clientY - rect.top;
+        dragged = false;
+        header.setPointerCapture(event.pointerId);
+    });
+    header.addEventListener("pointermove", (event) => {
+        if (event.pointerId !== pointerId) {
+            return;
+        }
+        if (!dragged &&
+            Math.hypot(event.clientX - startX, event.clientY - startY) <
+                CHAT_PANEL_DRAG_THRESHOLD) {
+            return;
+        }
+        dragged = true;
+        panel.dataset.userPositioned = "true";
+        panel.classList.add("is-dragging");
+        event.preventDefault();
+        placeChatPanel(panel, event.clientX - offsetX, event.clientY - offsetY);
+    });
+    const finishDrag = (event) => {
+        if (event.pointerId !== pointerId) {
+            return;
+        }
+        if (header.hasPointerCapture(event.pointerId)) {
+            header.releasePointerCapture(event.pointerId);
+        }
+        panel.classList.remove("is-dragging");
+        pointerId = null;
+        dragged = false;
+    };
+    header.addEventListener("pointerup", finishDrag);
+    header.addEventListener("pointercancel", finishDrag);
+}
 window.Controller = {
     createChat() {
         const existingPanel = document.getElementById("lecture-chat-panel");
@@ -55,6 +142,7 @@ window.Controller = {
                 Controller.sendChatMessage();
             }
         });
+        setupChatPanelDrag(panel);
         // Restore saved messages after the chat panel is created.
         Controller.restoreChatHistory();
         return panel;
@@ -83,13 +171,56 @@ window.Controller = {
             }
         });
     },
+    // Clears chat elements that remain mounted during single-page navigation.
+    clearChatMessages() {
+        const messagesContainer = document.getElementById("lecture-chat-messages");
+        const input = document.getElementById("lecture-chat-input");
+        if (messagesContainer) {
+            messagesContainer.replaceChildren();
+            messagesContainer.dataset.restored = "true";
+            messagesContainer.scrollTop = 0;
+        }
+        if (input) {
+            input.value = "";
+        }
+    },
     toggleChatPanel() {
         const panel = Controller.createChat();
         if (panel.style.display === "none" || panel.style.display === "") {
             panel.style.display = "flex";
+            if (panel.dataset.userPositioned === "true") {
+                Controller.keepChatPanelInsideViewport();
+            }
+            else {
+                Controller.positionChatPanel(panel);
+            }
             return;
         }
         panel.style.display = "none";
+    },
+    positionChatPanel(panel) {
+        positionChatBesideMainButton(panel);
+    },
+    repositionChatPanelNearMainButton() {
+        const panel = document.getElementById("lecture-chat-panel");
+        if (!panel ||
+            panel.style.display !== "flex" ||
+            panel.dataset.userPositioned === "true") {
+            return;
+        }
+        positionChatBesideMainButton(panel);
+    },
+    keepChatPanelInsideViewport() {
+        const panel = document.getElementById("lecture-chat-panel");
+        if (!panel || panel.style.display !== "flex") {
+            return;
+        }
+        if (panel.dataset.userPositioned !== "true") {
+            positionChatBesideMainButton(panel);
+            return;
+        }
+        const rect = panel.getBoundingClientRect();
+        placeChatPanel(panel, rect.left, rect.top);
     },
     createQuizPanel() {
         const existingOverlay = document.getElementById("lecture-quiz-overlay");
@@ -544,11 +675,16 @@ window.Controller = {
         const summaryButton = document.getElementById("summary");
         const askButton = document.getElementById("questions");
         const quizButton = document.getElementById("quiz");
-        summaryButton.addEventListener("click", () => Controller.textSummary(summaryButton));
+        summaryButton.addEventListener("click", () => {
+            Buttons.closeSecondaryButtons();
+            Controller.textSummary(summaryButton);
+        });
         askButton.addEventListener("click", () => {
+            Buttons.closeSecondaryButtons();
             Controller.toggleChatPanel();
         });
         quizButton.addEventListener("click", () => {
+            Buttons.closeSecondaryButtons();
             Controller.toggleQuizPanel();
         });
     },

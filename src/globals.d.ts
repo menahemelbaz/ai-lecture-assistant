@@ -12,12 +12,18 @@ interface Window {
     ): HTMLButtonElement;
     createButtons(): void;
     createMainButton(): HTMLButtonElement;
+    toggleSecondaryButtons(): void;
+    closeSecondaryButtons(): void;
   };
 
   Controller: {
     createChat(): HTMLDivElement;
     restoreChatHistory(): void;
+    clearChatMessages(): void;
     toggleChatPanel(): void;
+    positionChatPanel(panel: HTMLDivElement): void;
+    repositionChatPanelNearMainButton(): void;
+    keepChatPanelInsideViewport(): void;
     createQuizPanel(): HTMLDivElement;
     toggleQuizPanel(): void;
     setQuizStatus(text: string): void;
