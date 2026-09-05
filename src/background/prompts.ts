@@ -16,6 +16,8 @@ export function buildAskMessages(
   // the assistant answers freely - the same behavior as before this feature.
   const systemPromptNoTranscript = `You are a study assistant for a student watching a recorded lecture.
 
+Answer in the same language as the student's question.
+
 No lecture transcript has been captured yet. Answer the student's question
 clearly and educationally, whatever it is.
 
@@ -27,6 +29,8 @@ ${MATH_FORMATTING_INSTRUCTION}`;
   // With a transcript, the assistant answers anything related to the lecture's
   // subject area (even loosely) and politely declines the entirely unrelated.
   const systemPromptWithTranscript = `You are a study assistant for a student watching a recorded lecture.
+
+  Answer in the same language as the student's question.
 
 Scope: answer any question that relates to the subject area of the lecture, even
 loosely or indirectly - related concepts, background, prerequisites, adjacent
@@ -84,8 +88,8 @@ Rules:
 - Identify up to 4 general topics that the lecture actually covers in enough
   depth to build practice questions from. Fewer than 4 is fine - only include
   topics with real substance.
-- Topics must be short, clear labels (a few words each), in the SAME language as
-  the transcript.
+- Topics must be short, clear labels (a few words each), in the same PRIMARY
+  language as the transcript.
 - Do NOT invent topics that are not genuinely present in the transcript.
 - If the transcript does not yet contain enough substantive content to practice
   (e.g. it is only introductory remarks, greetings, or too fragmentary), return
@@ -128,7 +132,7 @@ Create ONE multiple-choice question about the given topic:
 - The question is based on the lecture, but explanations MAY briefly draw on
   general knowledge of the subject to enrich understanding, as long as they stay
   connected to the topic.
-- Write everything in the SAME language as the transcript.
+- Write everything in the same PRIMARY language as the transcript.
 - Vary which position holds the correct answer.
 - ${MATH_FORMATTING_INSTRUCTION}
 
@@ -162,9 +166,11 @@ ${transcript}
 // study sheet with consistent mathematical notation.
 export function buildSummaryMessages(text: string): OpenAiChatMessage[] {
   const systemPrompt =
-    "You are a professional assistant that turns Hebrew lecture transcripts into clear, well-organized, educational Hebrew study sheets for students.";
+    "You are a professional assistant that turns lecture transcripts into clear, well-organized, educational study sheets for students.";
 
-  const userPrompt = `Summarize the following lecture transcript in Hebrew as a study sheet of medium length.
+  const userPrompt = `Summarize the following lecture transcript as a study sheet of medium length.
+Write the entire study sheet in the same primary language as the lecture transcript.
+Preserve standard technical terms in their conventional form when appropriate.
 
 Goal: a student who reads the summary should understand the main points and flow
 of the lecture. Be clear and informative, but concise - not exhaustive.
@@ -190,12 +196,12 @@ Structure:
 Mathematical notation - IMPORTANT for consistency:
 - Write mathematical objects, symbols, complexity classes, sets, relations, and
   variables ONLY as LaTeX wrapped in $...$ (inline) or $$...$$ (display).
-- Use the standard mathematical symbol, never a Hebrew transliteration and never
-  a bare Latin letter. For example write $P$, $NP$, $PC$, $S \\in NP$ - never
-  "פי", "פי-סי", "NP" as plain Hebrew/Latin text, and never a lone P outside $...$.
+- Use standard mathematical notation. Never spell mathematical symbols
+  phonetically or leave mathematical variables and complexity classes as plain
+  text. For example, write $P$, $NP$, $PC$, $S \in NP$ inside LaTeX delimiters.
 - Use each symbol consistently throughout the summary.
 
-Output only the final Hebrew study sheet.
+Output only the final study sheet.
 
 Lecture transcript:
 """

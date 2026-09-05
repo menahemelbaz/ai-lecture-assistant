@@ -5,7 +5,6 @@ import {
 import { OpenAiClient } from "../config/openaiClient.js";
 
 const WHISPER_MODEL = "whisper-1";
-const TRANSCRIPTION_LANGUAGE = "he";
 
 // Serializes transcription so the packets stay in their original order.
 let uploadQueue: Promise<void> = Promise.resolve();
@@ -34,7 +33,6 @@ async function transcribePacket(
 
     const result = await OpenAiClient.transcribeAudio(audioBlob, {
         model: WHISPER_MODEL,
-        language: TRANSCRIPTION_LANGUAGE,
     });
 
     if (!result.ok) {

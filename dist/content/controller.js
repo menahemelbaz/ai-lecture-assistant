@@ -11,10 +11,16 @@ window.Controller = {
         panel.id = "lecture-chat-panel";
         panel.innerHTML = `
       <div id="lecture-chat-header">
-        <button id="lecture-chat-close" title="Close chat">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
+       <span id="lecture-chat-title">Ask About the Lecture</span>
+
+       <button
+        id="lecture-chat-close"
+        title="Close chat"
+        aria-label="Close chat"
+      >
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
 
       <div id="lecture-chat-messages"></div>
 
@@ -22,6 +28,7 @@ window.Controller = {
         <input
           id="lecture-chat-input"
           type="text"
+          dir="auto"
           placeholder="Type your question"
         />
         <button
@@ -169,6 +176,7 @@ window.Controller = {
         for (const topic of topics) {
             const button = document.createElement("button");
             button.className = "lecture-quiz-topic";
+            button.dir = "auto";
             button.textContent = topic;
             button.addEventListener("click", () => {
                 activeQuizTopic = topic;
@@ -203,12 +211,14 @@ window.Controller = {
         body.textContent = "";
         const heading = document.createElement("h3");
         heading.className = "lecture-quiz-heading";
+        heading.dir = "auto";
         Controller.renderMathInto(heading, question);
         body.appendChild(heading);
         const optionButtons = [];
         options.forEach((option) => {
             const button = document.createElement("button");
             button.className = "lecture-quiz-option";
+            button.dir = "auto";
             const label = document.createElement("div");
             Controller.renderMathInto(label, option.text);
             button.appendChild(label);
@@ -368,6 +378,7 @@ window.Controller = {
         }
         const message = document.createElement("div");
         message.className = `lecture-chat-message ${sender}`;
+        message.dir = "auto";
         // Render math for assistant answers; user questions stay plain text.
         if (sender === "assistant") {
             Controller.renderMathInto(message, text);

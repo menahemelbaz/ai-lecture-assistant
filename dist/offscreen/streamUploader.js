@@ -1,7 +1,6 @@
 import { buildWavBuffer, } from "./wavEncoder.js";
 import { OpenAiClient } from "../config/openaiClient.js";
 const WHISPER_MODEL = "whisper-1";
-const TRANSCRIPTION_LANGUAGE = "he";
 // Serializes transcription so the packets stay in their original order.
 let uploadQueue = Promise.resolve();
 // Notifies the background of a transcription failure so it can inform the user.
@@ -20,7 +19,6 @@ async function transcribePacket(packet, sampleRate) {
     const audioBlob = new Blob([wavBuffer], { type: "audio/wav" });
     const result = await OpenAiClient.transcribeAudio(audioBlob, {
         model: WHISPER_MODEL,
-        language: TRANSCRIPTION_LANGUAGE,
     });
     if (!result.ok) {
         console.error(`Transcription failed (${result.errorKind}): ${result.error}`);

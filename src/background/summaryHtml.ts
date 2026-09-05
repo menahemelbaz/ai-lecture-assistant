@@ -94,10 +94,10 @@ export function buildSummaryHtml(summary: string): string {
   const body = renderMarkdown(summary);
 
   return `<!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html>
   <head>
     <meta charset="UTF-8" />
-    <title>סיכום הרצאה</title>
+    <title>AI Lecture Assistant</title>
     <style>
       @page { margin: 20mm 16mm; }
 
@@ -106,8 +106,6 @@ export function buildSummaryHtml(summary: string): string {
       body {
         margin: 0;
         padding: 32px 36px;
-        direction: rtl;
-        text-align: right;
         font-family: "Assistant", "Rubik", -apple-system, BlinkMacSystemFont,
           "Segoe UI", Arial, sans-serif;
         font-size: 15px;
@@ -151,8 +149,8 @@ export function buildSummaryHtml(summary: string): string {
         font-weight: 700;
         line-height: 1.4;
         margin: 30px 0 12px;
-        padding-right: 12px;
-        border-right: 4px solid #f58a2a;
+        padding-inline-start: 12px;
+        border-inline-start: 4px solid #f58a2a;
         color: #1a1a1a;
       }
 
@@ -167,12 +165,12 @@ export function buildSummaryHtml(summary: string): string {
 
       ul, ol {
         margin: 0 0 16px;
-        padding-right: 24px;
+        padding-inline-start: 24px;
       }
 
       li {
         margin-bottom: 7px;
-        padding-right: 4px;
+        padding-inline-start: 4px;
       }
 
       ul li::marker { color: #f58a2a; }
@@ -202,11 +200,13 @@ export function buildSummaryHtml(summary: string): string {
     </style>
   </head>
   <body>
-    <div class="doc">
-      <div class="eyebrow">סיכום הרצאה · AI Lecture Assistant</div>
-      <div class="rule"></div>
-      ${body}
-    </div>
+   <div class="doc">
+  <div class="eyebrow">AI Lecture Assistant</div>
+  <div class="rule"></div>
+  <main class="summary-content" dir="auto">
+    ${body}
+  </main>
+</div>
   </body>
 </html>`;
 }
